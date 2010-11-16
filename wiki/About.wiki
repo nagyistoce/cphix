@@ -30,12 +30,12 @@ When downscaling and when saving. All between these two points is done in floats
 
 *How it works:*
 
-#) RGB values for every pixel are "gammed" and converted to floats
-#) brigthness is calculated for each pixel
-#) mask is generated (~ selective blur mask) (one band mask with floats)
-#) characteristics of saturation, sharpness and brightness are calculated and at the same time changes to be applied are defined
-#) changes are applied
-#) "ungamming" and saving as JPG
+# RGB values for every pixel are "gammed" and converted to floats
+# brigthness is calculated for each pixel
+# mask is generated (~ selective blur mask) (one band mask with floats)
+# characteristics of saturation, sharpness and brightness are calculated and at the same time changes to be applied are defined
+# changes are applied
+# "ungamming" and saving as JPG
 
 *Limitations:*
 
