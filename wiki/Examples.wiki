@@ -7,4 +7,4 @@ Add your content here.
 
 = Details =
 
-http://code.google.com/p/cphix/downloads/detail?name=4-example.jpg&can=2&q=
+http://code.google.com/p/cphix/downloads/detail?name=4-example.jpg
