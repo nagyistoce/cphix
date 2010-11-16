@@ -2,7 +2,7 @@
 
 = Examples =
 
-Here are som images, they are downscaled and saved as not so high quality jpg, so artefact are visible, still I belive some changes are obvious. Left side is allways original, right side is modified.
+Here are som images, they are downscaled and saved as not so high quality jpg, so compressions artefacts are visible, still I belive intended changes are obvious. Left side is allways original, right side is modified.
 
 http://cphix.googlecode.com/files/1-saturation.jpg
 
