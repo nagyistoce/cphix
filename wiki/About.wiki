@@ -1,0 +1,37 @@
+#summary Introduction to cphix.
+
+
+ =CPhix - Batch processing of photos - analyses and modifies saturation, sharpness and brightness=
+
+*Why is CPhix different?*
+It analyses each image. It calculates saturation, sharpness and current distribution of brightness. And based on results it applies changes. Most of similar programs applies user-defined changes to all images, so you have to group similar images together and tell application what to do. Here, you dont say almost anything (still there is few switches) and program will "normalize" images for you.
+
+*Available switches:*
+--cons (for conservative) - only subtle changes
+--strong - strong changes
+(default is between the two)
+--half - does only right side of image - usefull to compare effects
+--clip - replaces standard normalization of brightness by primitive darkening light parts and lightening dark parts of image.
+--show - show preferences, yeh, not very useful when you dont understand what they mean :)
+--mask - saving mask that is used during processing
+
+*Another advantages:*
+Processing is internally lossless. With two exemptions:
+When downscaling and when saving. All between these two points is done in floats (so no intermediate saving of RGB values as 0-255 integers as probably done in similar programs)
+
+*How it works:*
+1) RGB values for every pixel are "gammed" and converted to floats
+2) brigthness is calculated for each pixel
+3) mask is generated (~ selective blur mask) (one band mask with floats)
+4) characteristics of saturation, sharpness and brightness are calculated and at the same time changes to be applied are defined
+5) changes are applied
+6) "ungamming" and saving as JPG
+
+*Limitations:*
+This is still in progress, but one significant shortcoming is processing of skin (faces, bodies) that can result in unnatural colors. Human eye is too sensitive for color of skin...
+
+*Participation:*
+I would welcome a feedback. For example photos that were processed in weird way.
+But let me know of any issues with this small tool, you are welcome.
+
+Contact: tiborb95 at gmail dot com
