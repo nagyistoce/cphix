@@ -2,12 +2,12 @@
 
 = Examples =
 
-Here are som images, they are downscaled and saved as not so high quality jpg, so compressions artefacts are visible, still I belive intended changes are obvious. Left side is allways original, right side is modified.
+Here are som images, some of the are saved with low jpg quality, I apologize for this, still I believe intended changes are obvious. Left side is allways original, right side is modified.
 
 http://cphix.googlecode.com/files/1-saturation.jpg
 
 http://cphix.googlecode.com/files/2-example.jpg
 
-http://cphix.googlecode.com/files/3-brightness.jpg
-
 http://cphix.googlecode.com/files/4-example.jpg
+
+http://cphix.googlecode.com/files/example-7.jpg
