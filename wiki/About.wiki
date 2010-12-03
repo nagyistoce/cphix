@@ -17,16 +17,14 @@ It analyses each image. It calculates saturation, sharpness and current distribu
 
 --half - does only right side of image - usefull to compare effects
 
---clip - replaces standard normalization of brightness by primitive darkening light parts and lightening dark parts of image.
-
 --show - show preferences, yeh, not very useful when you dont understand what they mean :)
 
---mask - saving mask that is used during processing
+--mask - saving masks that is used during processing (probably of no use for users)
 
 *Another advantages:*
 
 Processing is internally lossless. With two exemptions:
-When downscaling and when saving. All between these two points is done in floats (so no intermediate saving of RGB values as 0-255 integers as probably done in similar programs)
+When downscaling and when saving. Everything between these two points is done in floats (so no intermediate saving of RGB values as 0-255 integers as probably done in similar programs)
 
 *How it works:*
 
@@ -50,5 +48,9 @@ This is still in progress, but one significant shortcoming is processing of skin
 
 I would welcome a feedback. For example photos that were processed in weird way.
 But let me know of any issues with this small tool, you are welcome.
+
+*Supported platforms*
+
+It is intended for linux, but in theory it should work also on other unix-like systems and windows as well.
 
 Contact: tiborb95 at gmail dot com
