@@ -21,6 +21,9 @@ It analyses each image. It calculates saturation, sharpness and current distribu
 
 --mask - saving masks that is used during processing (probably of no use for users)
 
+-m/--mode snow/summer - custom modes for specific situations
+
+
 *Another advantages:*
 
 Processing is internally lossless. With two exemptions:
@@ -46,8 +49,8 @@ This is still in progress, but one significant shortcoming is processing of skin
 
 *Participation:*
 
-I would welcome a feedback. For example photos that were processed in weird way.
-But let me know of any issues with this small tool, you are welcome.
+I would welcome a feedback. For example - photos that gave strange results and so on.
+But I would be glad of any even small issues you had with this tool.
 
 *Supported platforms*
 
