@@ -12,4 +12,8 @@ http://cphix.googlecode.com/files/example-7.jpg
 
 http://cphix.googlecode.com/files/example-8.jpg
 
+Example of snow mode (-m snow), available from 0.4d version
+
+http://cphix.googlecode.com/files/final_img_5803.jpg
+
 Just be aware that with many images the changes will not be visible - or rather, no changes will be needed, so dont be disappointed... , this is feature not bug :)
