@@ -19,10 +19,12 @@ It analyses each image. It calculates saturation, sharpness and current distribu
 
 --show - show preferences, yeh, not very useful when you dont understand what they mean :)
 
---mask - saving masks that is used during processing (probably of no use for users)
+--masks - saving masks that is used during processing (probably of no use for users)
 
 -m/--mode snow/summer - custom modes for specific situations
 
+--blur/--softblur/--strongblur - selective blur, intended for noisy images, side effect is reduction of image size
+-h    - help
 
 *Another advantages:*
 
@@ -33,24 +35,28 @@ When downscaling and when saving. Everything between these two points is done in
 
 1) RGB values for every pixel are "gammed" and converted to floats
 
-2) brigthness is calculated for each pixel
+2) if in snow mode, colors are balanced
 
-3) mask is generated (~ selective blur mask) (one band mask with floats)
+3) if blur mode, blur is applied
 
-4) characteristics of saturation, sharpness and brightness are calculated and at the same time changes to be applied are defined
+4) brigthness is calculated for each pixel
 
-5) changes are applied
+5) mask is generated (~ selective blur mask) (one band mask with floats)
+
+6) characteristics of saturation, sharpness and brightness are calculated and at the same time changes to be applied are defined
+
+7) changes are applied
 
 6) "ungamming" and saving as JPG
 
 *Limitations:*
 
-This is still in progress, but one significant shortcoming is processing of skin (faces, bodies) that can result in unnatural colors. Human eye is too sensitive for color of skin...
+This is still in progress, but one significant shortcoming is processing of skin (faces, bodies) that can result in unnatural colors. Human eye is too sensitive to the color of skin...
 
 *Participation:*
 
 I would welcome a feedback. For example - photos that gave strange results and so on.
-But I would be glad of any even small issues you had with this tool.
+But I would be glad for any even small issues you had with this tool.
 
 *Supported platforms*
 
