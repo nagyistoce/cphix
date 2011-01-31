@@ -21,3 +21,7 @@ Just be aware that with many images the changes will not be visible - or rather,
 Part of snow-mode is snow-white balancing, usually the need and effect is not significant, but below is an example when image was badly disaligned, probably due to use of a flash.
 
 http://cphix.googlecode.com/files/final_IMG_5837.JPG
+
+Another example of snow mode
+
+http://cphix.googlecode.com/files/final_IMG_5949.JPG
