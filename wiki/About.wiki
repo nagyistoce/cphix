@@ -7,51 +7,40 @@
 
 It analyses each image. It calculates saturation, sharpness and current distribution of brightness. And based on results it applies changes. Most of similar programs applies user-defined changes to all images, so you have to group similar images together and tell application what to do. Here, you dont say almost anything (still there is few switches) and program will "normalize" images for you.
 
-*Available switches:*
 
---cons (for conservative) - only subtle changes
+*Intended use*
 
---strong - strong changes
+This tool is used for very basic processing of images, f.e. when you need to process huge number of photos from vacation and so on and are not willing to manually edit them. Part of processing is downscale and including a text into them.
 
-(default is between the two)
+*Logic of processing:*
 
---half - does only right side of image - usefull to compare effects
+Well all is just a mathematics. The cphix attemtps to calculate (average/overall) level of brightness, contrast, saturation and sharpness and compare the value with target range and apply modifications. For better understanding here is an example:
 
---show - show preferences, yeh, not very useful when you dont understand what they mean :)
 
---masks - saving masks that is used during processing (probably of no use for users)
+{{{
+[many images processed here]
+==> Image  21/21: IMG_0861.JPG    ( 2048 x 1536)
+  Brightness gamma: 0.54, change: 0.36->0.58 (target: 0.58-0.70)
+  Contrast gamma  : 0.82, change: 0.36->0.30 (target: 0.30-0.45)
+  Saturation gamma: 0.72, change: 0.06->0.12 (target: 0.12-0.22), good samples: 214, OoR:  0
+  Saturation boost: 1.00, change: 0.12->0.12 (target: 0.12-0.22), good samples: 214, OoR:  0
+  Sharpness boost: 1.12, change: 0.08->0.09 (target: 0.09-0.30), good samples: 214, OoR:  0
+    Label size: 85 54, text size: 75 x 44, blur radius:  4
+  Rescaling to 1154 x 866 (1.00 mpx)
+==SUMMARY (per change - count of images):
+   Type of modif.       | Decreased | Increased |Not changed|
+   Brightness           |         0 |        18 |          3|
+   Contrast             |         1 |        14 |          6|
+   Saturation           |         0 |        18 |          3|
+   Sharpness            |         0 |        12 |          9|}}}
 
--m/--mode snow/summer - custom modes for specific situations
-
---blur/--softblur/--strongblur - selective blur, intended for noisy images, side effect is reduction of image size
--h    - help
-
-*Another advantages:*
-
-Processing is internally lossless. With two exemptions:
-When downscaling and when saving. Everything between these two points is done in floats (so no intermediate saving of RGB values as 0-255 integers as probably done in similar programs)
-
-*How it works:*
-
-1) RGB values for every pixel are "gammed" and converted to floats
-
-2) if in snow mode, colors are balanced
-
-3) if blur mode, blur is applied
-
-4) brigthness is calculated for each pixel
-
-5) mask is generated (~ selective blur mask) (one band mask with floats)
-
-6) characteristics of saturation, sharpness and brightness are calculated and at the same time changes to be applied are defined
-
-7) changes are applied
-
-6) "ungamming" and saving as JPG
+Look at "change" part of lines, there you can see old value and new value and how they fits into target range.
+At the end there is and summary of processed images.
 
 *Limitations:*
 
-This is still in progress, but one significant shortcoming is processing of skin (faces, bodies) that can result in unnatural colors. Human eye is too sensitive to the color of skin...
+Well, this is not finished yet and there are couple of features that are to be applied yet.
+
 
 *Participation:*
 
