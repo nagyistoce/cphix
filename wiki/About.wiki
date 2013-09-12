@@ -25,14 +25,14 @@ Well all is just a mathematics. The cphix attemtps to calculate (average/overall
   Saturation gamma: 0.72, change: 0.06->0.12 (target: 0.12-0.22), good samples: 214, OoR:  0
   Saturation boost: 1.00, change: 0.12->0.12 (target: 0.12-0.22), good samples: 214, OoR:  0
   Sharpness boost: 1.12, change: 0.08->0.09 (target: 0.09-0.30), good samples: 214, OoR:  0
-    Label size: 85 54, text size: 75 x 44, blur radius:  4
   Rescaling to 1154 x 866 (1.00 mpx)
 ==SUMMARY (per change - count of images):
    Type of modif.       | Decreased | Increased |Not changed|
    Brightness           |         0 |        18 |          3|
    Contrast             |         1 |        14 |          6|
    Saturation           |         0 |        18 |          3|
-   Sharpness            |         0 |        12 |          9|}}}
+   Sharpness            |         0 |        12 |          9|
+}}}
 
 Look at "change" part of lines, there you can see old value and new value and how they fits into target range.
 At the end there is and summary of processed images.
