@@ -37,6 +37,10 @@ Well all is just a mathematics. The cphix attemtps to calculate (average/overall
 Look at "change" part of lines, there you can see old value and new value and how they fits into target range.
 At the end there is and summary of processed images.
 
+*Switches:*
+
+Well, use 'cphix.bin -h' to see switches as avaiable by now....
+
 *Limitations:*
 
 Well, this is not finished yet and there are couple of features that are to be applied yet.
