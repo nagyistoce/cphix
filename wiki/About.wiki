@@ -45,6 +45,9 @@ Well, use 'cphix.bin -h' to see switches as avaiable by now....
 
 Well, this is not finished yet and there are couple of features that are to be applied yet.
 
+*Example*
+
+For examples skip to this wiki page with [Examples].
 
 *Participation:*
 
