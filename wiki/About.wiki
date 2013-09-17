@@ -3,6 +3,10 @@
 
  =CPhix - Batch processing of photos - analyses and modifies saturation, sharpness and brightness=
 
+*What is CPhix?*
+
+CPhix is command line (no GUI) tool for batch processing of images (photos).
+
 *Why is CPhix different?*
 
 It *analyses each image*. It *calculates saturation, sharpness and current distribution of brightness*. And based on results it applies changes. Most of similar programs applies user-defined changes to all images, so you have to group similar images together and tell application what to do. Here, you dont say almost anything (still there is few switches) and program will "normalize" images for you.
@@ -10,7 +14,7 @@ It *analyses each image*. It *calculates saturation, sharpness and current distr
 
 *Intended use*
 
-This tool is used for *batch processing* of images, f.e. when you need to process huge number of photos from vacation and so on and are not willing to manually edit them.
+When you have huge number of images and needs to process them without spending time on it. Typically vacation photos and so on.
 
 The tool can also *downscale*, *label* and *auto-rotate* (based on exif information).
 
