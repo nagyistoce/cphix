@@ -5,12 +5,14 @@
 
 *Why is CPhix different?*
 
-It analyses each image. It calculates saturation, sharpness and current distribution of brightness. And based on results it applies changes. Most of similar programs applies user-defined changes to all images, so you have to group similar images together and tell application what to do. Here, you dont say almost anything (still there is few switches) and program will "normalize" images for you.
+It *analyses each image*. It *calculates saturation, sharpness and current distribution of brightness*. And based on results it applies changes. Most of similar programs applies user-defined changes to all images, so you have to group similar images together and tell application what to do. Here, you dont say almost anything (still there is few switches) and program will "normalize" images for you.
 
 
 *Intended use*
 
-This tool is used for very basic processing of images, f.e. when you need to process huge number of photos from vacation and so on and are not willing to manually edit them. Part of processing is downscale and including a text into them.
+This tool is used for *batch processing* of images, f.e. when you need to process huge number of photos from vacation and so on and are not willing to manually edit them.
+
+The tool can also *downscale*, *label* and *auto-rotate* (based on exif information).
 
 *Logic of processing:*
 
@@ -19,19 +21,18 @@ Well all is just a mathematics. The cphix attemtps to calculate (average/overall
 
 {{{
 [many images processed here]
-==> Image  21/21: IMG_0861.JPG    ( 2048 x 1536)
-  Brightness gamma: 0.54, change: 0.36->0.58 (target: 0.58-0.70)
-  Contrast gamma  : 0.82, change: 0.36->0.30 (target: 0.30-0.45)
-  Saturation gamma: 0.72, change: 0.06->0.12 (target: 0.12-0.22), good samples: 214, OoR:  0
-  Saturation boost: 1.00, change: 0.12->0.12 (target: 0.12-0.22), good samples: 214, OoR:  0
-  Sharpness boost: 1.12, change: 0.08->0.09 (target: 0.09-0.30), good samples: 214, OoR:  0
-  Rescaling to 1154 x 866 (1.00 mpx)
+==> Image  17/17: img_4742.jpg    ( 2048 x 1536)
+    (rotating, original orientation: 8)
+  Brightness gamma: 1.04, change: 0.68->0.68 (target: 0.45-0.68)
+  Contrast gamma  : 1.00, change: 0.43->0.43 (target: 0.30-0.45)
+  Sharpness boost : 1.35, change: 0.09->0.12 (target: 0.12-0.30)
+  Saturation gamma: 0.66, change: 0.04->0.18 (target: 0.18-0.40)
 ==SUMMARY (per change - count of images):
    Type of modif.       | Decreased | Increased |Not changed|
-   Brightness           |         0 |        18 |          3|
-   Contrast             |         1 |        14 |          6|
-   Saturation           |         0 |        18 |          3|
-   Sharpness            |         0 |        12 |          9|
+   Brightness           |         4 |         2 |         11|
+   Contrast             |         6 |         5 |          6|
+   Saturation           |         0 |        17 |          0|
+   Sharpness            |         0 |         7 |         10|
 }}}
 
 Look at "change" part of lines, there you can see old value and new value and how they fits into target range.
@@ -44,6 +45,12 @@ Well, use 'cphix.bin -h' to see switches as avaiable by now....
 *Limitations:*
 
 Well, this is not finished yet and there are couple of features that are to be applied yet.
+
+*Dependencies*
+
+Well, the main dependency is [http://cimg.sourceforge.net/  Cimg (C Imaging Library) ]. So you must have it installed.
+
+The other one is [https://code.google.com/p/easyexif/ easyefix (EXIF parsing library)]. However this one is packed in the tarbal.
 
 *Example*
 
