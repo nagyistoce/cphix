@@ -46,6 +46,8 @@ Well, use 'cphix.bin -h' to see switches as avaiable by now....
 
 Well, this is not finished yet and there are couple of features that are to be applied yet.
 
+Among other things I must note that the algorithm is not designed and/or adjusted to work with human skine...
+
 *Dependencies*
 
 Well, the main dependency is [http://cimg.sourceforge.net/  Cimg (C Imaging Library) ]. So you must have it installed.
