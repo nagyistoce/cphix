@@ -52,11 +52,22 @@ Well, the main dependency is [http://cimg.sourceforge.net/  Cimg (C Imaging Libr
 
 The other one is [https://code.google.com/p/easyexif/ easyefix (EXIF parsing library)]. However this one is packed in the tarbal.
 
-*Example*
+*Installation&compilation on Linux*
+
+  # To install it you need to have basic compilation environment installed (usually this is a meta-package in packaging system) and the other package needed is Cimg - should be available in repositories of your distribution.
+  # Download and extract the tarball from Downloads section here, extract it and go to cphix directory
+  # run 'make'
+  # the binary is named cphix2.bin, this is standalone binary so you can copy it elsewhere
+
+*Installation&compilation on Windows*
+
+Well, perhaps there will be a volunteer to help with this
+
+*Examples*
 
 For examples skip to this wiki page with [Examples].
 
-*Participation:*
+*Participation*
 
 I would welcome a feedback. For example - photos that gave strange results and so on.
 But I would be glad for any even small issues you had with this tool.
