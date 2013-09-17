@@ -51,8 +51,9 @@ Among other things I must note that the algorithm is not designed and/or adjuste
 *Color-space theory*
 
 Well I spent quite lot of time investigating and learning about colorspaces. I noticed that colorspace you work in matters. Especially it matters for brightness and saturation. As I need to put everything into numbers, everything must be proportional. F.e. saturation 0.1 must be roughly double (visually) of saturation of 0.05 and so on. I gave up on using CIELUV and similar colorspaces as I was not willing to re-code all the formulas from the scratch. I liked also [http://en.wikipedia.org/wiki/Munsell_color_system Munsell color system], but either there are no formulas or they are secret or so...
+
 At the end I ended with this rough color-space that can be depicted on this 
-[https://cphix.googlecode.com/files/ColorSpace-v1.3.png image]. Here you can see f.e. that not colors are equal in regard to highes achievable saturation and highest saturation depends on brightness.
+[https://cphix.googlecode.com/files/ColorSpace-v1.3.png image]. Here you can see f.e. that not colors are equal in regard to highes achievable saturation and highest saturation depends on brightness. The colorspace should be depicted as 3D object, but I used random colors instead and put them into 2D.
 
 
 *Dependencies*
