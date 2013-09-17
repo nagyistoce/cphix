@@ -51,7 +51,7 @@ Well, use 'cphix.bin -h' to see switches as avaiable by now....
 Well, this is not finished yet and there are couple of features that are to be applied yet. F.e. (but there are many more):
 
   #  the algorithm is not designed and/or adjusted to work with human skine...
-  # it do not do white-point balancing
+  # it does not do white-point balancing
 
 *Color-space theory*
 
