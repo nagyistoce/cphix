@@ -1,6 +1,6 @@
 Cphix is CLI tool to normalize images intended primarily for linux.
  
-Current version 1.5
+Current version 1.6
 HOME: http://code.google.com/p/cphix/
 (see wiki section there also)
 
@@ -49,4 +49,4 @@ tiborb95 at gmail dot com
 Your feedback is WELCOMED !
 
 
-Updated: 17 Sep 2013
+Updated: 18 Sep 2013
