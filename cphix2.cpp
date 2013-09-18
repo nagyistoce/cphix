@@ -55,7 +55,7 @@ static int sharp_stat[3]={0,0,0};
 static int sat_stat[3]={0,0,0};
 void help ();
 static string filename; 
-const char *version="1.5";
+const char *version="1.6";
 const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
 
 void get_brightness(float value, float br_gamma, float contr_gamma, float *new_br, float *new_contr);
@@ -138,7 +138,7 @@ void arg_processing (int argc,char** argv){
 			cout << " * Saving blurred mask. \n";
 			maindata.savemask=TRUE;
 			shadow_argv[n]=true; }
-		if (strcmp (argv[n],"--title") == 0 ) { 
+		if (strcmp (argv[n],"--title") == 0 || strcmp (argv[n],"--text") == 0 ) { 
 			if (shadow_argv[n+1]==false && n+1<argc) {
 				maindata.title=argv[n+1];
 				printf (" * Text to be inserted: %s \n",maindata.title);
