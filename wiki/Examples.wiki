@@ -1,22 +1,21 @@
 #summary Few examples can do more than thousand words :)
 
-= Examples =
-So without any introductory words - here is couple of images made with cphix v 1.1
+= Cphix - image auto-enhancement tool - example images =
 
-https://cphix.googlecode.com/files/final_img_2285.jpg
+Below you can find couple of mine images taken with cheap (and old camera) and can see the effect of cphis tool.
 
-https://cphix.googlecode.com/files/final_img_2252.jpg
+The basic rules/goals of cphix are:
 
-https://cphix.googlecode.com/files/final_img_2378.jpg
+  * modifications must be decent
+  * no (visual) change to image is not bug, but feature
 
-https://cphix.googlecode.com/files/final_img_5750.jpg
 
-https://cphix.googlecode.com/files/final_img_5761.jpg
-
-https://cphix.googlecode.com/files/final_img_5834.jpg
-
-https://cphix.googlecode.com/files/final_IMG_0833.JPG
-
-https://cphix.googlecode.com/files/final_IMG_0861.JPG
+https://cphix.googlecode.com/files/samples/final_IMG_0469.JPG
+https://cphix.googlecode.com/files/samples/final_IMG_0833.JPG
+https://cphix.googlecode.com/files/samples/final_IMG_0861.JPG
+https://cphix.googlecode.com/files/samples/final_img_2369.jpg
+https://cphix.googlecode.com/files/samples/final_img_2378.jpg
+https://cphix.googlecode.com/files/samples/final_img_5778.jpg
+https://cphix.googlecode.com/files/samples/final_img_5834.jpg
 
 To learn more about Cphix visit [About] wiki page
