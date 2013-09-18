@@ -28,11 +28,11 @@ using namespace cimg_library;
 #include <string>
 #include <math.h>
 #include "easyexif/exif.h"
+#include <errno.h>
 
 #define POINTSPERLINE 15
 #define FALSE 0
 #define TRUE 1
-//#define SATBREAKPOINT 0.5
 #define BRIGHT 0
 #define SHARP 1
 #define SATUR 2
@@ -63,6 +63,7 @@ void get_ordered(float *array);
 float get_waverage(float *array,float gamma);
 float calculate_brightness(float r,float g, float b);
 void resaturate(int basepos, float saturation_gamma, float *newr,float *newg,float *newb,float *applied_sat);
+int test_file(const char* file);
 
 typedef struct
 {
@@ -97,6 +98,8 @@ static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.18,0.40,0.12,0.3,FALSE,
 void arg_processing (int argc,char** argv){
 	//creating OVERLAY ARRAY to mark processed CLI arguments
 	bool *shadow_argv;
+	int filetestresult;
+	float tmpfloat;
 	shadow_argv= new bool[argc]; // creating bool array that identifies parsed arguments
 	for (int n=1;n<argc;n=n+1){ // setting defaul false values
 		shadow_argv[n] = false;}
@@ -156,21 +159,56 @@ void arg_processing (int argc,char** argv){
 			else {
 				cout << " --textsize needs an parameter (float or integer) \n";
 				shadow_argv[n]=true; }}	
-				
+		// --mpx		
 		if (strcmp (argv[n],"--mpx") == 0 || strcmp (argv[n],"--MPx") == 0) {
 			if (shadow_argv[n+1]==false && n+1<argc) {
-				maindata.mpx_resize=atof(argv[n+1]);
-				if (maindata.mpx_resize==0)
+				tmpfloat=atof(argv[n+1]);
+				//maindata.mpx_resize=atof(argv[n+1]);
+				if (tmpfloat==0)
 					printf (" ! Check the argument for --mpx  \n");
-				else if (maindata.mpx_resize<0.01 || maindata.mpx_resize>15)
+				else if (tmpfloat<0.01 || tmpfloat>15){
 					printf (" ! --mpx got value out of allowed range (0,01-15), no resize... \n");
-				else 
-					printf (" * Image(s) will be resized to: %.2f MPx \n",maindata.mpx_resize);
+					maindata.mpx_resize=0;}	
+				else {
+					maindata.mpx_resize=tmpfloat;
+					printf (" * Image(s) will be resized to: %.2f MPx \n",maindata.mpx_resize);}
 				shadow_argv[n]=true;shadow_argv[n+1]=true; }
 			else {
 				cout << " --mpx needs an parameter (float or integer) \n";
 				shadow_argv[n]=true; }}				
-		
+		// --minsat
+		if (strcmp (argv[n],"--minsat") == 0 ) {
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				tmpfloat=atof(argv[n+1]);
+				if (tmpfloat==0)
+					printf (" ! Check the argument for --minsat  \n");
+				else if (tmpfloat<0.01 || tmpfloat>0.5)
+					printf (" ! --minsat got value out of allowed range (0,01-0.5), using default... \n");
+				else {
+					maindata.minsat=tmpfloat;
+					printf (" * Minimal saturation set to: %.2f \n",maindata.minsat);}
+				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			else {
+				cout << " --mpx needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }
+				if (maindata.maxsat<maindata.minsat+0.05)maindata.maxsat=maindata.minsat+0.05; }	
+		// --minsharp				
+		if (strcmp (argv[n],"--minsharp") == 0 ||  strcmp (argv[n],"--minsh") == 0 ) {
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				tmpfloat=atof(argv[n+1]);
+				if (tmpfloat==0)
+					printf (" ! Check the argument for --minsharp  \n");
+				else if (tmpfloat<0.01 || tmpfloat>0.5)
+					printf (" ! --minsharp got value out of allowed range (0,01-0.5), using default... \n");
+				else {
+					maindata.minsharp1=tmpfloat;
+					printf (" * Minimal sharpness set to: %.2f \n",maindata.minsharp1);}
+				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			else {
+				cout << " --minsharp needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }
+				if (maindata.maxsharp1<maindata.minsharp1+0.05) maindata.maxsharp1=maindata.minsharp1+0.05; 
+				}			
 		
 				
 		if (strcmp (argv[n],"--help") == 0 || strcmp (argv[n],"-h") == 0) {
@@ -183,18 +221,18 @@ void arg_processing (int argc,char** argv){
    	for (int n=1;n<argc;n=n+1) {		//iterating over (all) arguments
    		if (shadow_argv[n]) {continue;} //skip if agrument was recognized before
 
-   		ifstream inp; 					//tries to open string as file
-   		qarg=argv[n];
-   		inp.open(qarg.c_str(), ifstream::in);
-		inp.close();
-		if(inp.fail()) { 				//if failed to open as file...
-			printf (" ! Unrecognized argument: %-15s Use \"-h\" for info about switches.\n",argv[n]);
-			//cout << "\n  ! Unrecognized argument: "<< qarg<< "\n   Use "-h" for info about switches.\n\n";
-			shadow_argv[n]=true;
-			continue; 		}
-		images.push_back(argv[n]); 		//remaining strings are saved as images
-   		img_count=img_count+1;
-   		}
+		filetestresult=test_file(argv[n]);
+		
+		if(filetestresult==0) {
+			images.push_back(argv[n]); 		//source image exists
+   			img_count=img_count+1;}
+   		else if (filetestresult==13) {
+			printf (" ! File %s is not readable...\n",argv[n]);}
+		else if (filetestresult==2) {
+			printf (" ! Unrecognized argument: %-15s Use \"-h\" for info about switches.\n",argv[n]);}
+   		else  {
+			printf (" ! Error %1d when trying to open file %s...\n",filetestresult,argv[n]);}		
+		}
    	
    	}
 
@@ -220,6 +258,8 @@ void help (){
 	printf("%-20s  %s\n", "--textsize $FLOAT", "Relative size of text (default: 1).");	
 	printf("%-20s  %s\n", "--skip", "Skip image if final image exists.");	
 	printf("%-20s  %s\n", "--mpx $DECIMAL", "Final size of image in MPx");
+	printf("%-20s  %s\n", "--minsat $DECIMAL", "Modifies bottom saturation target");
+	printf("%-20s  %s\n", "--minsharp $DECIMAL", "Modifies bottom sharpness target");
 	printf("%-20s  %s\n", "--png", "Save as 8-bit png, default is jpg");
 	printf("%-20s  %s\n", "--help; -h", "Prints help and quits");
 	printf("\n");
@@ -845,7 +885,35 @@ void populate_sat(){
 			basepos=get_basepos(x,y,maindata.source_x_size);
 			sat[basepos]=calculate_saturation(basepos);}}
 	}	
+
+//float get_disalignment(){
+	//int halfstepx,halfstepy,x,y,basepos,count,xpoint,ypoint;
+	//float sumr,sumg,sumb;
 	
+	//count=0;sumr=0;sumg=0;sumb=0;
+	//halfstepx=maindata.source_x_size/POINTSPERLINE/2.0;
+	//halfstepy=maindata.source_y_size/POINTSPERLINE/2.0;
+	//for (xpoint=0;xpoint<POINTSPERLINE;xpoint+=1) {for (ypoint=0;ypoint<POINTSPERLINE;ypoint+=1) {	
+		//x=halfstepx+xpoint*maindata.source_x_size/POINTSPERLINE;
+		//y=halfstepy+ypoint*maindata.source_y_size/POINTSPERLINE;
+		////printf (" Testing pixel %4d x %4d\n",x,y);
+		//basepos=get_basepos(x,y,maindata.source_x_size);
+		//if (br[basepos] + (max (r[basepos], max(g[basepos],b[basepos]))) > 0.98) continue;
+		//if (br[basepos] - (min (r[basepos], min(g[basepos],b[basepos]))) < 0.02) continue;
+		//sumr+=r[basepos];
+		//sumg+=g[basepos];
+		//sumb+=b[basepos];
+		//count+=1;
+		//}}
+		
+	//for (x=0;x<maindata.source_x_size*maindata.source_y_size;x+=1){
+	//r[x]=r[x]-sumr/count;
+	//g[x]=g[x]-sumg/count;
+	//b[x]=b[x]-sumb/count;}
+	
+	//printf("  rgb disalignment: %.3f %.3f %.3f (samples: %1d)\n",sumr/count,sumg/count,sumb/count,count);
+//}
+
 void populate(CImg<unsigned char>* srcimgL){
 	int x,y,basepos,R,G,B;
 	int x1,y1;
@@ -872,7 +940,7 @@ void populate(CImg<unsigned char>* srcimgL){
 		tmp1=tmp1_tmp;
 		allocated=maindata.source_size;}
 	
-	if (maindata.rotation==8 || maindata.rotation==6  | maindata.rotation==7  || maindata.rotation==5 ){
+	if (maindata.rotation==8 || maindata.rotation==6  || maindata.rotation==7  || maindata.rotation==5 ){
 		tmp=maindata.source_x_size;
 		maindata.source_x_size=maindata.source_y_size;
 		maindata.source_y_size=tmp;}
@@ -910,6 +978,7 @@ void populate(CImg<unsigned char>* srcimgL){
 			r[basepos]=r[basepos]-br[basepos];
 			g[basepos]=g[basepos]-br[basepos];
 			b[basepos]=b[basepos]-br[basepos];
+			//br[basepos]=0.15+br[basepos]*0.9; // delete this !
 			}}
 	}
 float calculate_brightness(float r,float g, float b){
@@ -949,6 +1018,22 @@ float parse_exif(char *char_filename){
 	return result.Orientation;
 }
 
+int test_file(const char* file){
+	//0-file exists, 1-exit but cannot read,2 do not exist
+	
+	FILE *tmp;
+	if ((tmp = fopen(file, "r")) == NULL) {
+		//printf (" error: %1d\n", errno);
+		return errno;
+	}
+
+	fclose(tmp);
+	return 0;
+	
+}
+	
+	
+	
 
 //  ##############################   M A I N   #######################################	
 
@@ -957,7 +1042,7 @@ int main(int argc, char** argv){
 	//char filename[1000];
 	//int n;
 	float brightness_gamma,contrast_gamma,saturation_gamma,saturation_boost,sharpness_boost,tmp;
-	
+	//int filestatus=-1;
 	
 	arg_processing(argc, argv);
 	
@@ -991,20 +1076,15 @@ int main(int argc, char** argv){
 			newfilename=("final_"+filename);}
 		const char *char_savename = newfilename.c_str();
 		
-		//testing if file exists
-		if (FILE * file = fopen(char_savename, "r"))
-    	{
-        fclose(file);
-        printf ("==> File %s exitst, skipping...\n",char_savename);
-        continue;
-        }
-		
-		
+				//testing if file exists
+		//filestatus=test_file(char_savename);
+		if (maindata.skip==TRUE && ( test_file(char_savename)==0 || test_file(char_savename)==13) ){
+	        printf ("==> File %s exitst, skipping...\n",char_savename);
+	        continue;
+	        }
 
 		maindata.rotation=parse_exif(char_filename);
 		//printf ("  Orientation: %1d\n",maindata.rotation);
-
-
 
 		CImg<unsigned char> srcimg(char_filename) ;
 		
@@ -1017,6 +1097,9 @@ int main(int argc, char** argv){
 		if(maindata.rotation<=0 || maindata.rotation>8)maindata.rotation=1; 
 		if (maindata.rotation>1) printf ("    (rotating, original orientation: %d)\n",maindata.rotation);
 		populate(&srcimg);
+		
+		//processing color disalignment
+		//get_disalignment();
 
 		//processing/changing brightness
 		take_samples(BRIGHT);
@@ -1037,7 +1120,7 @@ int main(int argc, char** argv){
 			blur(&br[0],&mask1[0],0.1,maindata.source_x_size,maindata.source_y_size);  // blurring br to mask1
 			take_samples(SHARP);										//taking samples
 			get_ordered(&sample_sharp1[0]);								//ordering them
-			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp1,maindata.maxsharp1,1.0,"Sharpness",0.8,&tmp);
+			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp1,maindata.maxsharp1,1.0,"Sharpness",2,&tmp);
 			put_in_stat(1.0/sharpness_boost,&sharp_stat[0]);		 	//calculating sharpness boost
 			apply_sharp_boost(sharpness_boost);							//changing br
 			}
@@ -1093,9 +1176,7 @@ int main(int argc, char** argv){
 		//final_img.save_png(char_savename);	
 		
 		}
-		
-		
-		
+			
 	printf( "==SUMMARY (per change - count of images):\n");
 	printf ("   %-20s |%10s |%10s |%11s|\n","Type of modif.","Decreased","Increased", "Not changed");
 	printf ("   %-20s |%10d |%10d |%11d|\n","Brightness",br_stat[0],br_stat[1],br_stat[2]);
