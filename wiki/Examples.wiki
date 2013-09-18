@@ -10,12 +10,12 @@ The basic rules/goals of cphix are:
   * no (visual) change to image is not bug, but feature
 
 
-https://cphix.googlecode.com/files/samples/final_IMG_0469.JPG
-https://cphix.googlecode.com/files/samples/final_IMG_0833.JPG
-https://cphix.googlecode.com/files/samples/final_IMG_0861.JPG
-https://cphix.googlecode.com/files/samples/final_img_2369.jpg
-https://cphix.googlecode.com/files/samples/final_img_2378.jpg
-https://cphix.googlecode.com/files/samples/final_img_5778.jpg
-https://cphix.googlecode.com/files/samples/final_img_5834.jpg
+https://cphix.googlecode.com/files/final_IMG_0469.JPG
+https://cphix.googlecode.com/files/final_IMG_0833.JPG
+https://cphix.googlecode.com/files/final_IMG_0861.JPG
+https://cphix.googlecode.com/files/final_img_2369.jpg
+https://cphix.googlecode.com/files/final_img_2378.jpg
+https://cphix.googlecode.com/files/final_img_5778.jpg
+https://cphix.googlecode.com/files/final_img_5834.jpg
 
 To learn more about Cphix visit [About] wiki page
