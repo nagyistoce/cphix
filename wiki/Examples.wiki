@@ -2,9 +2,9 @@
 
 = Cphix - image auto-enhancement tool - example images =
 
-Below you can find couple of mine images taken with cheap (and old camera) and can see the effect of cphis tool.
+Below you can find couple of mine images taken with cheap (and old camera) and can see the effect of Cphix tool.
 
-The basic rules/goals of cphix are:
+The basic principles/goals of Cphix are:
 
   * modifications must be decent
   * no (visual) change to image is not bug, but feature
