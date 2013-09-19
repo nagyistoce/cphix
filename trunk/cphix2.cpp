@@ -56,7 +56,8 @@ static int sat_stat[3]={0,0,0};
 void help ();
 static string filename; 
 const char *version="1.6";
-const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
+//const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
+const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3};
 
 void get_brightness(float value, float br_gamma, float contr_gamma, float *new_br, float *new_contr);
 void get_ordered(float *array);
@@ -84,6 +85,7 @@ typedef struct
 	int output;
 	float textsize ;
 	bool skip;
+	bool patterndefined;
 	int rotation;
 	int source_x_size;
 	int source_y_size;
@@ -91,8 +93,9 @@ typedef struct
 	int result_y_size;
 	int source_size;
 	char *title;
+	char *pattern;
 } MyMainVals;
-static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.18,0.40,0.12,0.3,FALSE,FALSE,FALSE,FALSE,0,JPG,1,FALSE};
+static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.23,0.43,0.12,0.3,FALSE,FALSE,FALSE,FALSE,0,JPG,1,FALSE,FALSE};
 
 
 void arg_processing (int argc,char** argv){
@@ -145,6 +148,16 @@ void arg_processing (int argc,char** argv){
 				shadow_argv[n]=true; shadow_argv[n+1]=true; }
 			else {
 				cout << " --title needs a string. \n";
+				shadow_argv[n]=true; }}
+		if (strcmp (argv[n],"--newname") == 0 || strcmp (argv[n],"--outfile") == 0 ) { 
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				//strncmp(argv[n+1],maindata.pattern,19);
+				maindata.pattern=argv[n+1];
+				printf (" * Pattern used for new filenames: %s \n",maindata.pattern);
+				maindata.patterndefined=TRUE;
+				shadow_argv[n]=true; shadow_argv[n+1]=true; }
+			else {
+				cout << " --newname needs a string. \n";
 				shadow_argv[n]=true; }}
 		if (strcmp (argv[n],"--textsize") == 0) {
 			if (shadow_argv[n+1]==false && n+1<argc) {
@@ -261,6 +274,10 @@ void help (){
 	printf("%-20s  %s\n", "--minsat $DECIMAL", "Modifies bottom saturation target");
 	printf("%-20s  %s\n", "--minsharp $DECIMAL", "Modifies bottom sharpness target");
 	printf("%-20s  %s\n", "--png", "Save as 8-bit png, default is jpg");
+	printf("%-20s  %s\n", "--newname $PATTERN", "Naming pattern for final images, * will be replaced");
+	printf("%-20s  %s\n", " "					, " by old filename, # by images counter, so with pattern");
+	printf("%-20s  %s\n", " "					, " 'vacation_#_*', the name IMG_0586.jpg will be changed");
+	printf("%-20s  %s\n", " "					, " to 'vacation_0001_IMG_0586.jpg' ");
 	printf("%-20s  %s\n", "--help; -h", "Prints help and quits");
 	printf("\n");
 	}
@@ -983,7 +1000,9 @@ void populate(CImg<unsigned char>* srcimgL){
 	}
 float calculate_brightness(float r,float g, float b){
 	float brightness;
-	brightness=( 4.0 * (3.0*r+6.0*g+b)/10.0 + max(r,max(g,b))  ) / 5.0;
+	//brightness=( 4.0 * (3.0*r+6.0*g+b)/10.0 + max(r,max(g,b))  ) / 5.0;
+	brightness=r*0.6 + b*0.1 + g*0.3;
+	
 	return brightness;
 	}
 
@@ -1029,9 +1048,63 @@ int test_file(const char* file){
 
 	fclose(tmp);
 	return 0;
-	
 }
+
+string get_new_name(string filename,int number){
+	//gets actual name, strips path and replaces * and # if present
 	
+	int filenamelen,dotpos,slashpos,patternlength,aspos,i,crosspos,newnamelen;
+	string basename,newname;
+	const bool debug=FALSE;
+	
+	filenamelen=filename.length();
+	slashpos=filename.find_last_of("/", filenamelen);
+	dotpos = filename.find_last_of(".", filenamelen);
+	if (debug) printf ("%1d, slash: %1d, dot: %.1d\n",filenamelen,slashpos,dotpos);
+	basename=filename.substr(slashpos+1,dotpos-slashpos-1);
+	if (debug) printf ("basename: %s\n",basename.c_str());
+	if (debug) printf ("pattern defined: %1d\n",maindata.patterndefined);
+
+	
+	//modifying savename
+	if (maindata.patterndefined==FALSE) newname="final_"+basename;
+	else {
+		patternlength=strlen(maindata.pattern);
+		if (debug) printf ("patternlength: %1d\n",patternlength);			
+		newname=maindata.pattern;
+		aspos=newname.find_first_of("*");
+		if (debug) printf (" find result: %.1d\n",aspos); 
+		if (aspos >-1) {
+			if (debug) printf ("   replacing asterix on pos: %1d...\n",aspos);
+			newname.insert(aspos, basename);
+			}
+		
+		crosspos=newname.find_first_of("#");
+		if (crosspos >-1) {
+			if (debug) printf ("   inserting number...\n");
+			char buffer[20]; sprintf(buffer, "%04d", number+1);
+			string number_str(buffer);
+			if (debug) printf (" inserting number: %s, on pos: %1d\n",number_str.c_str(),crosspos);
+			newname.insert(crosspos, number_str);
+			}
+		}
+		
+	if (debug) printf (" newname before cleaning: %s\n",newname.c_str());	
+	//cleaning and shrotening newname if needed, also appending suffix
+	for (i=0;i<10000;i+=1){
+		aspos=newname.find_first_of("*#");
+		if (aspos<0) break;
+		newname.erase(aspos,1);}
+	
+	newnamelen=newname.length();
+	if (newnamelen>52) newname.erase(50,string::npos);
+	
+	if (maindata.output==JPG) newname.append(".jpg");
+	else newname.append(".png");
+	
+	if (debug) printf (" newname: %s\n",newname.c_str());
+	return newname ;
+}
 	
 	
 
@@ -1065,19 +1138,12 @@ int main(int argc, char** argv){
 		char_filename[filename.size()]=0; 				
 		memcpy(char_filename,filename.c_str(),filename.size()); 
 		
-		//vytvorenie noveho mena 
-		string newfilename;
-		if (maindata.output==PNG){
-			filename.erase(filename.find_last_of("."), string::npos);
-			newfilename=("final_"+filename+".png");
-			//printf ("base file name: %s\n",newfilename.c_str());
-			}
-		else {
-			newfilename=("final_"+filename);}
+		
+		//creating new name 
+		string newfilename=get_new_name(images[n],n);
 		const char *char_savename = newfilename.c_str();
 		
-				//testing if file exists
-		//filestatus=test_file(char_savename);
+		//testing if file exists
 		if (maindata.skip==TRUE && ( test_file(char_savename)==0 || test_file(char_savename)==13) ){
 	        printf ("==> File %s exitst, skipping...\n",char_savename);
 	        continue;
@@ -1154,7 +1220,7 @@ int main(int argc, char** argv){
 		if (maindata.savemask==TRUE) {
 			CImg<unsigned char> sharp_mask(maindata.source_x_size,maindata.source_y_size,1,3);
 			insert_final(&sharp_mask,&mask1[0],MASK);
-			string newmaskfilename=("mask_"+filename);
+			string newmaskfilename=("mask_"+newfilename);
 			const char *char_newmaskfilename = newmaskfilename.c_str();
 			sharp_mask.save_jpeg(char_newmaskfilename,89);}
 			
@@ -1172,7 +1238,8 @@ int main(int argc, char** argv){
 			final_img.resize(new_x,new_y,-100,-100,5);
 			}
 		if 			(maindata.output==PNG) final_img.save_png(char_savename);	
-		else		final_img.save_jpeg(char_savename,89);	
+		else		final_img.save_jpeg(char_savename,89);
+		printf("  Saved as: %s\n",newfilename.c_str());
 		//final_img.save_png(char_savename);	
 		
 		}
