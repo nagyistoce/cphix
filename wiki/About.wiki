@@ -46,6 +46,13 @@ At the end there is and summary of processed images.
 
 Well, use 'cphix.bin -h' to see switches as avaiable by now....
 
+*Final files naming*
+
+By default the cphix attaches "final_" to the filename, but you can use own names or pattern of names. There are two wildcards: '*' - will be replaced by original filename (without extension) and '#' will be replaced by counter number of image (0001, 0002 and so on).
+
+So following --newname 'Vacation_2013_#' defines output names like:  Vacation_2013_0001.jpg, Vacation_2013_0002.jpg and so on... (since v. 1.6)
+
+
 *Limitations:*
 
 Well, this is not finished yet and there are couple of features that are to be applied yet. F.e. (but there are many more):
