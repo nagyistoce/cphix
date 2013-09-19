@@ -52,6 +52,7 @@ Well, this is not finished yet and there are couple of features that are to be a
 
   #  the algorithm is not designed and/or adjusted to work with human skine...
   # it does not do white-point balancing
+  # algorithm does not cope well with images where bis areas are "empty" - either gray or flat (even brightness). 
   # it cannot do miracles (like recovering lost blue on sky)
 
 *Color-space theory*
