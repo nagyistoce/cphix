@@ -65,6 +65,7 @@ float get_waverage(float *array,float gamma);
 float calculate_brightness(float r,float g, float b);
 void resaturate(int basepos, float saturation_gamma, float *newr,float *newg,float *newb,float *applied_sat);
 int test_file(const char* file);
+float my_pow(float base,float exp);
 
 typedef struct
 {
@@ -95,7 +96,7 @@ typedef struct
 	char *title;
 	char *pattern;
 } MyMainVals;
-static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.23,0.43,0.12,0.3,FALSE,FALSE,FALSE,FALSE,0,JPG,1,FALSE,FALSE};
+static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.23,0.43,0.13,0.3,FALSE,FALSE,FALSE,FALSE,0,JPG,1,FALSE,FALSE};
 
 
 void arg_processing (int argc,char** argv){
@@ -399,7 +400,7 @@ void apply_gamma(float *array, float gamma){
 		if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;
 		for (y=0;y<maindata.source_y_size;y+=1) {
 		basepos=get_basepos(x,y,maindata.source_x_size);
-		array[basepos]=powf(array[basepos],gamma);}
+		array[basepos]=my_pow(array[basepos],gamma);}
 	}
 	}
 
@@ -435,12 +436,12 @@ void get_brightness(float value, float br_gamma, float contr_gamma, float *new_b
 	float old_contrast=0;
 	float new_contrast;
 	const bool debug=FALSE;
-	tmp=powf(value,br_gamma);
-	if (tmp>0.5) old_contrast=pow((tmp-0.5)/0.5,contr_gamma);
-	if (tmp<0.5) old_contrast=pow((0.5-tmp)/0.5,contr_gamma);
+	tmp=my_pow(value,br_gamma);
+	if (tmp>0.5) old_contrast=my_pow((tmp-0.5)/0.5,contr_gamma);
+	if (tmp<0.5) old_contrast=my_pow((0.5-tmp)/0.5,contr_gamma);
 	
 	//applying contrast gamma
-	new_contrast=pow(old_contrast,contr_gamma);
+	new_contrast=my_pow(old_contrast,contr_gamma);
 	
 	//calculating new brightness
 	if (tmp>0.5) *new_br=0.5 + new_contrast/2.0;
@@ -550,13 +551,18 @@ float get_waverage(float *array,float gamma){
 	sum=0;wcount=0;
 
 	for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
-		sum+= powf(array[i],gamma) * i;
+		sum+= my_pow(array[i],gamma) * i;
 		wcount+=i;
 		}
 	return (float)sum/wcount;
 	}
 	
-		
+
+float my_pow(float base,float exp){
+	float weight;
+	weight=pow(base,0.15);
+	return pow(base,exp)*weight + base*(1-weight);
+}
 
 float saturation_calibrate(float *array,float minlimit,float maxlimit,const char *title, float *oldvalue,float *newvalue){
 	float avg,gamma,newr,newg,newb,new_sat;
@@ -626,7 +632,7 @@ void resaturate(int basepos, float saturation_gamma, float *newr,float *newg,flo
 		boost=1;
 		*applied_sat=sat[basepos];}
 	else {
-		due_sat=pow(sat[basepos],saturation_gamma);
+		due_sat=my_pow(sat[basepos],saturation_gamma);
 		maxrgb=max(r[basepos] , max (g[basepos] , b[basepos]));
 		minrgb=min(r[basepos] , min (g[basepos] , b[basepos]));
 	
@@ -822,9 +828,9 @@ void insert_final(CImg<unsigned char>* final_img, float *source,int output) {
 			if (Rnew>1) {Rnew=1;}
 			if (Gnew>1) {Gnew=1;}
 			if (Bnew>1) {Bnew=1;}
-			Rfinal=pow(Rnew,2.2)*255;
-			Gfinal=pow(Gnew,2.2)*255;
-			Bfinal=pow(Bnew,2.2)*255;
+			Rfinal=my_pow(Rnew,2.2)*255;
+			Gfinal=my_pow(Gnew,2.2)*255;
+			Bfinal=my_pow(Bnew,2.2)*255;
 			//inserting into image
 			(*final_img)(x,y,0,0)=Rfinal;
 			(*final_img)(x,y,0,1)=Gfinal;
@@ -865,7 +871,7 @@ float calculate_saturation(int basepos){
 	
 	brightness=calculate_brightness(r[basepos]+br[basepos],g[basepos]+br[basepos],b[basepos]+br[basepos]);
 	if (brightness<0.005) brightness=0.005;
-	saturation=pow(brightness,0.1)*chrome;
+	saturation=my_pow(brightness,0.1)*chrome;
 	
 	
 	//weighting the saturation
@@ -987,9 +993,9 @@ void populate(CImg<unsigned char>* srcimgL){
 			B=(int)(*srcimgL)(x1,y1,2);
 			
 			basepos=get_basepos(x,y,maindata.source_x_size);
-			r[basepos]=pow((float)R/255,1/2.2);
-			g[basepos]=pow((float)G/255,1/2.2);			
-			b[basepos]=pow((float)B/255,1/2.2);
+			r[basepos]=my_pow((float)R/255,1/2.2);
+			g[basepos]=my_pow((float)G/255,1/2.2);			
+			b[basepos]=my_pow((float)B/255,1/2.2);
 			br[basepos]=calculate_brightness(r[basepos],g[basepos],b[basepos]);
 			//(r[basepos]+g[basepos]+b[basepos])/3.0;
 			r[basepos]=r[basepos]-br[basepos];
@@ -1058,7 +1064,7 @@ string get_new_name(string filename,int number){
 	const bool debug=FALSE;
 	
 	filenamelen=filename.length();
-	slashpos=filename.find_last_of("/", filenamelen);
+	slashpos=filename.find_last_of("/\\", filenamelen);
 	dotpos = filename.find_last_of(".", filenamelen);
 	if (debug) printf ("%1d, slash: %1d, dot: %.1d\n",filenamelen,slashpos,dotpos);
 	basename=filename.substr(slashpos+1,dotpos-slashpos-1);
@@ -1232,8 +1238,8 @@ int main(int argc, char** argv){
 		//ulozenie
 		if (maindata.mpx_resize>0){
 			int new_x,new_y;
-			new_x=maindata.source_x_size * pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
-			new_y=maindata.source_y_size * pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
+			new_x=maindata.source_x_size * my_pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
+			new_y=maindata.source_y_size * my_pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
 			printf ("  Rescaling to %2d x %2d (%.2f MPx)\n",new_x,new_y,new_x*new_y/1000000.0);
 			final_img.resize(new_x,new_y,-100,-100,5);
 			}
