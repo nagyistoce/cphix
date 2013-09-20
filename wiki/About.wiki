@@ -24,6 +24,7 @@ Well all is just a mathematics. The cphix attemtps to calculate (average/overall
 
 
 {{{
+$cphix.2bin /path/to/i*g
 [many images processed here]
 ==> Image  17/17: img_4742.jpg    ( 2048 x 1536)
     (rotating, original orientation: 8)
