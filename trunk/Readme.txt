@@ -5,8 +5,8 @@ HOME: http://code.google.com/p/cphix/
 (see wiki section there also)
 
 
-*USE:*
-(as available by "-h" switch)
+The Cphix2 analyses brightness (average and overall contrast), saturation and sharpness and modifies them.
+
 
  =====      Usage     =======
 At least one image must be provided, wildcards can be used:
@@ -56,4 +56,4 @@ tiborb95 at gmail dot com
 Your feedback is WELCOMED !
 
 
-Updated: 18 Sep 2013
+Updated: 20 Sep 2013
