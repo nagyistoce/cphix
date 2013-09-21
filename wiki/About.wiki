@@ -97,7 +97,7 @@ It will put files into current directory.
 
 *Installation&compilation on Windows*
 
-Well, perhaps there will be a volunteer to help with this
+There is installation package for windows as well in Downloads section
 
 *Examples*
 
