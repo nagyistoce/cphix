@@ -77,7 +77,7 @@ Well, the main dependency is [http://cimg.sourceforge.net/  Cimg (C Imaging Libr
 
 The other one is [https://code.google.com/p/easyexif/ easyefix (EXIF parsing library)]. However this one is packed in the tarbal.
 
-*Download*
+*Download of sources*
 
 The source can be downloaded from download section here, or if you have subversion installed, you can download it with command:
 
