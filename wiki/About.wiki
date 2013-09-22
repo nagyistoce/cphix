@@ -95,6 +95,8 @@ It will put files into current directory.
   # run 'make'
   # the binary is named cphix2.bin, this is standalone binary so you can copy it elsewhere
 
+In case you are an *Arch Linux* user, there is a [https://aur.archlinux.org/packages/cphix/ PKGBUILD]
+
 *Installation&compilation on Windows*
 
 There is installation package for windows as well in Downloads section
