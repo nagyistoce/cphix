@@ -90,7 +90,7 @@ It will put files into current directory.
 
 *Installation&compilation on Linux*
 
-  # To install it you need to have basic compilation environment installed (usually this is a meta-package in packaging system) and the other package needed is Cimg - should be available in repositories of your distribution.
+  # To install it you need to have basic compilation environment installed (usually this is a meta-package in packaging system) and the other package needed is Cimg - or perhaps cimg-dev package (this may differ across distributions) - should be available in repositories of your distribution.
   # Download and extract the tarball from Downloads section here, extract it and go to cphix directory
   # run 'make'
   # the binary is named cphix2.bin, this is standalone binary so you can copy it elsewhere
