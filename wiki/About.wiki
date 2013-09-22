@@ -1,11 +1,11 @@
-#summary Introduction to cphix (Automatic analysis and enhancement of images)
+#summary Introduction to Cphix (Automatic analysis and enhancement of images)
 
 
- =CPhix - Command line tool for automatic analysis and enhancement of photos. It analyses and modifies saturation, sharpness and brightness=
+ =Cphix introduction=
 
 *What is CPhix?*
 
-CPhix is command line (no GUI) tool for batch processing of images (photos).
+Command line tool for automatic analysis and enhancement of photos. It analyses and modifies saturation, sharpness and brightness
 
 *Why is CPhix different?*
 
