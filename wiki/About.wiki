@@ -73,7 +73,7 @@ At the end I ended with this rough color-space that can be depicted on this
 
 *Dependencies*
 
-Well, the main dependency is [http://cimg.sourceforge.net/  Cimg (C Imaging Library) ]. So you must have it installed including header files. On linux that can be separate package called like cimg-dev.
+Well, the main dependency is [http://cimg.sourceforge.net/  Cimg (C Imaging Library) ]. If you are using linux, chances are that is separate package cimg-dev with header files. You need this one as well.
 
 The other one is [https://code.google.com/p/easyexif/ easyefix (EXIF parsing library)]. However this one is packed in the tarbal.
 
