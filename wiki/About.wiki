@@ -14,9 +14,15 @@ It *analyses each image*. It *calculates saturation, sharpness and current distr
 
 *Intended use*
 
-When you have huge number of images and needs to process them without spending time on it. Typically vacation photos and so on.
+When you have huge number of images and needs to process them without spending time on it. Typically vacation photos and so on. 
 
 The tool can also *downscale*, *label* and *auto-rotate* (based on exif information).
+
+*Supported formats*
+
+Input images are opened by [http://cimg.sourceforge.net/  Cimg (C Imaging Library) ] so number of supported formats are huge.
+
+As for output - you can choose from jpg (quality 92 % - this is default, and 8-bit png). Adding more formats is trivial, just let me know.
 
 *Logic of processing:*
 
