@@ -73,7 +73,7 @@ At the end I ended with this rough color-space that can be depicted on this
 
 *Dependencies*
 
-Well, the main dependency is [http://cimg.sourceforge.net/  Cimg (C Imaging Library) ]. So you must have it installed.
+Well, the main dependency is [http://cimg.sourceforge.net/  Cimg (C Imaging Library) ]. So you must have it installed including header files. On linux that can be separate package called like cimg-dev.
 
 The other one is [https://code.google.com/p/easyexif/ easyefix (EXIF parsing library)]. However this one is packed in the tarbal.
 
@@ -90,7 +90,7 @@ It will put files into current directory.
 
 *Installation&compilation on Linux*
 
-  # To install it you need to have basic compilation environment installed (usually this is a meta-package in packaging system) and the other package needed is Cimg - or perhaps cimg-dev package (this may differ across distributions) - should be available in repositories of your distribution.
+  # To install it you need to have basic compilation environment installed (usually this is a meta-package in packaging system) and the other package needed is Cimg (including cimg-dev package if there is such package in repositories). (Note for linux newbies - all needed should be available in repositories unless you are using very obscure distribution)
   # Download and extract the tarball from Downloads section here, extract it and go to cphix directory
   # run 'make'
   # the binary is named cphix2.bin, this is standalone binary so you can copy it elsewhere
