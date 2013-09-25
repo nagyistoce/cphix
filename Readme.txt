@@ -1,6 +1,6 @@
 Cphix is CLI tool to normalize images intended primarily for linux.
  
-Current version 1.6
+Current version 1.6.1
 HOME: http://code.google.com/p/cphix/
 (see wiki section there also)
 
@@ -14,6 +14,7 @@ At least one image must be provided, wildcards can be used:
  (name of binary can differ)
 As by now, "final_" prefix is appended to the filename. Original images are not touched (of course).
 
+
  =====   CLI switches =======
 --half                Process only half of image
 --nosat               Do not modify saturation
@@ -23,6 +24,11 @@ As by now, "final_" prefix is appended to the filename. Original images are not 
 --title $YOURTEXT     Insert text into left bottom corner.
                       (Use '' to encapsulate a text with blanks)
 --textsize $FLOAT     Relative size of text (default: 1).
+--topacity $FLOAT     Text (label) opacity (0-1,default: 1).
+--txpos $FLOAT        Text x (horiz.) position (0-1,default: 1).
+--typos $FLOAT        Text y (vert.) position (0-1,default: 1).
+                      (Coordinates starts on upper left corner. Relative.
+                       positions refer to bottom right corner of text label).
 --skip                Skip image if final image exists.
 --mpx $DECIMAL        Final size of image in MPx
 --minsat $DECIMAL     Modifies bottom saturation target
@@ -33,6 +39,7 @@ As by now, "final_" prefix is appended to the filename. Original images are not 
                        'vacation_#_*', the name IMG_0586.jpg will be changed
                        to 'vacation_0001_IMG_0586.jpg' 
 --help; -h            Prints help and quits
+
 
 
 
@@ -56,4 +63,4 @@ tiborb95 at gmail dot com
 Your feedback is WELCOMED !
 
 
-Updated: 20 Sep 2013
+Updated: 25 Sep 2013
