@@ -40,6 +40,8 @@ using namespace cimg_library;
 #define MASK 101
 #define JPG 50
 #define PNG 51
+#define PARSINGSUCCESS 61
+#define PARSINGFAILED 62
 
 
 static 	vector<string> images; 
@@ -55,9 +57,10 @@ static int sharp_stat[3]={0,0,0};
 static int sat_stat[3]={0,0,0};
 void help ();
 static string filename; 
-const char *version="1.6";
+const char *version="1.6.1";
 //const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
-const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3};
+//const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3}; // v 1.6
+const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
 
 void get_brightness(float value, float br_gamma, float contr_gamma, float *new_br, float *new_contr);
 void get_ordered(float *array);
@@ -66,6 +69,7 @@ float calculate_brightness(float r,float g, float b);
 void resaturate(int basepos, float saturation_gamma, float *newr,float *newg,float *newb,float *applied_sat);
 int test_file(const char* file);
 float my_pow(float base,float exp);
+int parse_float(const char* argument,float downlimit, float uplimit, float *result, const char argument2,const char *text);
 
 typedef struct
 {
@@ -84,6 +88,10 @@ typedef struct
 	bool nosharp;
 	float mpx_resize;
 	int output;
+	float xpos;
+	float ypos;
+	float topacity;
+	bool bw;
 	float textsize ;
 	bool skip;
 	bool patterndefined;
@@ -96,7 +104,7 @@ typedef struct
 	char *title;
 	char *pattern;
 } MyMainVals;
-static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.23,0.43,0.13,0.3,FALSE,FALSE,FALSE,FALSE,0,JPG,1,FALSE,FALSE};
+static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.20,0.40,0.14,0.3,FALSE,FALSE,FALSE,FALSE,0,JPG,0.95,0.92,1,FALSE,1,FALSE,FALSE};
 
 
 void arg_processing (int argc,char** argv){
@@ -130,6 +138,10 @@ void arg_processing (int argc,char** argv){
 		if (strcmp (argv[n],"--png") == 0 ) { 
 			cout << " * Saving as 8-bit png \n";
 			maindata.output=PNG;
+			shadow_argv[n]=true; }
+		if (strcmp (argv[n],"--bw") == 0 ) { 
+			cout << " * B/W output\n";
+			maindata.bw=TRUE;
 			shadow_argv[n]=true; }
 		if (strcmp (argv[n],"--skip") == 0 ) { 
 			cout << " * Skipping if final image exists \n";
@@ -173,6 +185,26 @@ void arg_processing (int argc,char** argv){
 			else {
 				cout << " --textsize needs an parameter (float or integer) \n";
 				shadow_argv[n]=true; }}	
+
+				
+		if (strcmp (argv[n],"--txpos") == 0 ) {
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				parse_float(argv[n+1],0,1,&maindata.xpos,*argv[n],"Label x position");
+				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			else {
+				cout << " --txpos needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }}	
+		if (strcmp (argv[n],"--typos") == 0 ) {
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				parse_float(argv[n+1],0,1,&maindata.ypos,*argv[n],"Label y position");
+				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			else {
+				cout << " --typos needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }}				
+			
+			
+			
+			
 		// --mpx		
 		if (strcmp (argv[n],"--mpx") == 0 || strcmp (argv[n],"--MPx") == 0) {
 			if (shadow_argv[n+1]==false && n+1<argc) {
@@ -205,7 +237,24 @@ void arg_processing (int argc,char** argv){
 			else {
 				cout << " --mpx needs an parameter (float or integer) \n";
 				shadow_argv[n]=true; }
-				if (maindata.maxsat<maindata.minsat+0.05)maindata.maxsat=maindata.minsat+0.05; }	
+				if (maindata.maxsat<maindata.minsat+0.05)maindata.maxsat=maindata.minsat+0.05; }
+		//text opacity		
+		if (strcmp (argv[n],"--topacity") == 0 ) {
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				tmpfloat=atof(argv[n+1]);
+				if (tmpfloat==0)
+					printf (" ! Check the argument for --minsat  \n");
+				else if (tmpfloat<0.001 || tmpfloat>1)
+					printf (" ! --topacity got value out of allowed range (0.001-1), using default... \n");
+				else {
+					maindata.topacity=tmpfloat;
+					printf (" * Title opacity set to: %.2f \n",maindata.topacity);}
+				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			else {
+				cout << " --topacity needs an parameter (float) \n";
+				shadow_argv[n]=true; }
+			}
+	
 		// --minsharp				
 		if (strcmp (argv[n],"--minsharp") == 0 ||  strcmp (argv[n],"--minsh") == 0 ) {
 			if (shadow_argv[n+1]==false && n+1<argc) {
@@ -269,7 +318,12 @@ void help (){
 	printf("%-20s  %s\n", "--version; -v", "Prints out version (and proceeds with processing)");
 	printf("%-20s  %s\n", "--title $YOURTEXT", "Insert text into left bottom corner.");
 	printf("%-20s  %s\n", " ","(Use '' to encapsulate a text with blanks)");
-	printf("%-20s  %s\n", "--textsize $FLOAT", "Relative size of text (default: 1).");	
+	printf("%-20s  %s\n", "--textsize $FLOAT", "Relative size of text (default: 1).");
+	printf("%-20s  %s\n", "--topacity $FLOAT", "Text (label) opacity (0-1,default: 1).");
+	printf("%-20s  %s\n", "--txpos $FLOAT", "Text x (horiz.) position (0-1,default: 1).");	
+	printf("%-20s  %s\n", "--typos $FLOAT", "Text y (vert.) position (0-1,default: 1).");	
+	printf("%-20s  %s\n", " ", "(Coordinates starts on upper left corner. Relative");	
+	printf("%-20s  %s\n", " ", " positions refer to bottom right corner of text label).");			
 	printf("%-20s  %s\n", "--skip", "Skip image if final image exists.");	
 	printf("%-20s  %s\n", "--mpx $DECIMAL", "Final size of image in MPx");
 	printf("%-20s  %s\n", "--minsat $DECIMAL", "Modifies bottom saturation target");
@@ -285,6 +339,31 @@ void help (){
 
 inline int get_basepos(int x, int y, int width){
 	return y*width + x;}
+
+
+
+int parse_float(const char* argument,float downlimit, float uplimit, float *result,const char argument2,const char *text){
+	float tmp;
+	char * e;
+
+	tmp=(float)strtod(argument, &e);   //  atof(&argument);
+	if (*e != 0) {
+		printf (" ! Check the argument for %s  \n",text);
+		return PARSINGFAILED;}
+	else if (tmp<downlimit || tmp>uplimit){
+		//cout << 
+		printf (" ! %s got value out of allowed range (%.2f-%.2f), using default... \n",text,downlimit,uplimit);
+		return PARSINGFAILED;}
+	else {
+		*result=tmp;
+		printf (" * %s set to: %.2f \n",text,*result);
+		return PARSINGSUCCESS;}
+	}
+	
+	
+	
+	
+
 
 void take_samples(int action){
 	int x,y,xpoint,ypoint,basepos,halfstepx,halfstepy,basepos_sample;
@@ -668,8 +747,10 @@ void apply_sharp_boost(float sharp_boost){
 			
 			//sharpening
 			diff=(br[basepos]-mask1[basepos]);
-			if (br[basepos]<0.15 and diff<0) weight=br[basepos]/0.15;
-			else if (br[basepos]>0.85 and diff>0) weight=(1-br[basepos])/0.15;
+			if (br[basepos]<=0.05 && diff<0 ) weight=0;
+			else if (br[basepos]>=0.95 && diff>0) weight=0;
+			else if (br[basepos]<0.20 && diff<0) weight=(br[basepos]-0.05)/0.15;
+			else if (br[basepos]>0.80 && diff>0) weight=(1-br[basepos]-0.05)/0.15;
 			else weight=1;
 			local_boost=(sharp_boost-1.0)*weight + 1.0;
 			br[basepos]=(br[basepos]-mask1[basepos])*local_boost+mask1[basepos];
@@ -700,16 +781,25 @@ bool search_for_nan(){
 			
 	
 
-void process(float saturation_gamma,float saturation_pre_boost){
+void process(float saturation_gamma){
 	int x,y,basepos;
 	float applied_sat;
 	
-	for (x=0;x<maindata.source_x_size;x+=1) {
-		if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;
-		for (y=0;y<maindata.source_y_size;y+=1) {
-			basepos=get_basepos(x,y,maindata.source_x_size);
-			resaturate(basepos, saturation_gamma, &r[basepos],&g[basepos],&b[basepos],&applied_sat);
-			}}
+	if (maindata.bw==TRUE){
+		for (x=0;x<maindata.source_x_size;x+=1) {
+			if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;
+			for (y=0;y<maindata.source_y_size;y+=1) {
+				basepos=get_basepos(x,y,maindata.source_x_size);		
+				r[basepos]=0;
+				g[basepos]=0;
+				b[basepos]=0;	}}}
+	else{
+		for (x=0;x<maindata.source_x_size;x+=1) {
+			if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;
+			for (y=0;y<maindata.source_y_size;y+=1) {
+				basepos=get_basepos(x,y,maindata.source_x_size);
+				resaturate(basepos, saturation_gamma, &r[basepos],&g[basepos],&b[basepos],&applied_sat);
+				}}}
 	}
 
 
@@ -725,7 +815,7 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 	int label_x_pos,label_y_pos;
 	int offset,size,neededx,neededy,label_x_size,label_y_size,blur_radius;
 	int label_basepos;
-	int oldr,oldg,oldb;
+	int oldr,oldg,oldb,tmpr,tmpg,tmpb;
 	int foregroundcol[3]={255,255,0};
 	int backgroundcol[3]={0,0,150};
 	int newr,newg,newb;
@@ -780,18 +870,37 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 	for (label_x_pos=0;label_x_pos<label_x_size;label_x_pos+=1) { for (label_y_pos=0;label_y_pos<label_y_size;label_y_pos+=1) {
 		label_basepos=get_basepos(label_x_pos,label_y_pos,label_x_size);
 		img_x_pos=maindata.source_x_size*outer_x-label_x_size+label_x_pos;
+		if (img_x_pos<0 ||img_x_pos>=maindata.source_x_size) continue; 
 		img_y_pos=maindata.source_y_size*outer_y-label_y_size+label_y_pos;
+		if (img_y_pos<0 ||img_y_pos>=maindata.source_y_size) continue; 
 		oldr=(int)(*img)(img_x_pos,img_y_pos,0);
 		oldg=(int)(*img)(img_x_pos,img_y_pos,1);	
 		oldb=(int)(*img)(img_x_pos,img_y_pos,2);
 		//applying background
-		oldr=bg_weight_blurred[label_basepos]*backgroundcol[0] + oldr*(1-bg_weight_blurred[label_basepos]);
-		oldg=bg_weight_blurred[label_basepos]*backgroundcol[1] + oldg*(1-bg_weight_blurred[label_basepos]);
-		oldb=bg_weight_blurred[label_basepos]*backgroundcol[2] + oldb*(1-bg_weight_blurred[label_basepos]);
+		//oldr=bg_weight_blurred[label_basepos]*backgroundcol[0] + oldr*(1-bg_weight_blurred[label_basepos]);
+		//oldg=bg_weight_blurred[label_basepos]*backgroundcol[1] + oldg*(1-bg_weight_blurred[label_basepos]);
+		//oldb=bg_weight_blurred[label_basepos]*backgroundcol[2] + oldb*(1-bg_weight_blurred[label_basepos]);
 		
-		newr=fg_weight_blurred[label_basepos]*foregroundcol[0] + oldr*(1-fg_weight[label_basepos]);
-		newg=fg_weight_blurred[label_basepos]*foregroundcol[1] + oldg*(1-fg_weight[label_basepos]);
-		newb=fg_weight_blurred[label_basepos]*foregroundcol[2] + oldb*(1-fg_weight[label_basepos]);
+		//newr=fg_weight_blurred[label_basepos]*foregroundcol[0] + oldr*(1-fg_weight[label_basepos]);
+		//newg=fg_weight_blurred[label_basepos]*foregroundcol[1] + oldg*(1-fg_weight[label_basepos]);
+		//newb=fg_weight_blurred[label_basepos]*foregroundcol[2] + oldb*(1-fg_weight[label_basepos]);
+		
+		tmpr=bg_weight_blurred[label_basepos]*backgroundcol[0] + oldr*(1-bg_weight_blurred[label_basepos]);
+		tmpg=bg_weight_blurred[label_basepos]*backgroundcol[1] + oldg*(1-bg_weight_blurred[label_basepos]);
+		tmpb=bg_weight_blurred[label_basepos]*backgroundcol[2] + oldb*(1-bg_weight_blurred[label_basepos]);
+		
+		tmpr=fg_weight_blurred[label_basepos]*foregroundcol[0] + tmpr*(1-fg_weight[label_basepos]);
+		tmpg=fg_weight_blurred[label_basepos]*foregroundcol[1] + tmpg*(1-fg_weight[label_basepos]);
+		tmpb=fg_weight_blurred[label_basepos]*foregroundcol[2] + tmpb*(1-fg_weight[label_basepos]);		
+		
+		if (tmpr>255) tmpr=255;
+		if (tmpg>255) tmpg=255;
+		if (tmpb>255) tmpb=255;
+				
+		newr=tmpr*maindata.topacity+oldr*(1-maindata.topacity);
+		newg=tmpg*maindata.topacity+oldg*(1-maindata.topacity);
+		newb=tmpb*maindata.topacity+oldb*(1-maindata.topacity);		
+		
 		if (newr>255) newr=255;
 		if (newg>255) newg=255;
 		if (newb>255) newb=255;
@@ -1007,7 +1116,7 @@ void populate(CImg<unsigned char>* srcimgL){
 float calculate_brightness(float r,float g, float b){
 	float brightness;
 	//brightness=( 4.0 * (3.0*r+6.0*g+b)/10.0 + max(r,max(g,b))  ) / 5.0;
-	brightness=r*0.6 + b*0.1 + g*0.3;
+	brightness=r*0.3 + g*0.5+ b*0.2;
 	
 	return brightness;
 	}
@@ -1120,8 +1229,10 @@ string get_new_name(string filename,int number){
 int main(int argc, char** argv){
 	//char filename[1000];
 	//int n;
-	float brightness_gamma,contrast_gamma,saturation_gamma,saturation_boost,sharpness_boost,tmp;
+	float brightness_gamma,contrast_gamma,saturation_gamma,sharpness_boost,tmp;
 	//int filestatus=-1;
+	
+	cimg::exception_mode(0);  //0 quiet, 1- console only errors
 	
 	arg_processing(argc, argv);
 	
@@ -1158,7 +1269,18 @@ int main(int argc, char** argv){
 		maindata.rotation=parse_exif(char_filename);
 		//printf ("  Orientation: %1d\n",maindata.rotation);
 
+		//opening (trying to open) the file
+		
+		
+		try {
+			CImg<unsigned char> srcimg(char_filename) ;
+			//del srcimg;
+		} catch(CImgException &e) { 
+			printf ("\n==>  CImg library error for file %s :\n%s\nSkipping the file...\n",char_filename,e.what());
+			continue;
+		}
 		CImg<unsigned char> srcimg(char_filename) ;
+		
 		
 		maindata.source_x_size = srcimg.width();maindata.source_y_size = srcimg.height();
 		printf ("==> Image  %2d/%2d: %-15s ( %4d x %4d)\n",n+1,img_count,char_filename,maindata.source_x_size,maindata.source_y_size);
@@ -1202,20 +1324,21 @@ int main(int argc, char** argv){
 
 		
 		//calculating sat changes
-		if (maindata.nosat==false) {
+		if (maindata.bw==TRUE) saturation_gamma=1.0;
+		else if (maindata.nosat==false) {
 			populate_sat();						//populating sat array
 			take_samples(SATUR);
 			float oldvalue=0;float newvalue=0;		
 			saturation_gamma=saturation_calibrate(&sample_sat[0],maindata.minsat,maindata.maxsat,"Saturation",&oldvalue,&newvalue);
-			saturation_boost=1.0;
+			//saturation_boost=1.0;
 			//saturation_boost=linear_calibrate(&sample_sat[0],maindata.minsat,maindata.maxsat,saturation_gamma,"Saturation",0.5,&newvalue);
 			put_in_stat(oldvalue/newvalue,&sat_stat[0]);
 		}
 		else{
 			saturation_gamma=1.0;
-			saturation_boost=1.0;}
+			}
 		
-		process(saturation_gamma,saturation_boost);
+		process(saturation_gamma);
 		
 		
 		// creating NEW IMAGE
@@ -1231,7 +1354,7 @@ int main(int argc, char** argv){
 			sharp_mask.save_jpeg(char_newmaskfilename,89);}
 			
 		//inserting text
-		insert_text(&final_img,0.95,0.92,maindata.textsize);
+		insert_text(&final_img,maindata.xpos,maindata.ypos,maindata.textsize);
 		
 
 		
@@ -1243,9 +1366,18 @@ int main(int argc, char** argv){
 			printf ("  Rescaling to %2d x %2d (%.2f MPx)\n",new_x,new_y,new_x*new_y/1000000.0);
 			final_img.resize(new_x,new_y,-100,-100,5);
 			}
-		if 			(maindata.output==PNG) final_img.save_png(char_savename);	
-		else		final_img.save_jpeg(char_savename,89);
-		printf("  Saved as: %s\n",newfilename.c_str());
+		try{
+			if 			(maindata.output==PNG) final_img.save_png(char_savename);	
+			else		final_img.save_jpeg(char_savename,89);
+			printf("  Saved as: %s\n",newfilename.c_str());}
+		catch(CImgException &e) { 
+			printf ("\n ! Failed to save the file with error:\n%s\nSkipping the file...\n",e.what());
+			
+		}
+		
+		
+			
+		
 		//final_img.save_png(char_savename);	
 		
 		}
@@ -1254,6 +1386,7 @@ int main(int argc, char** argv){
 	printf ("   %-20s |%10s |%10s |%11s|\n","Type of modif.","Decreased","Increased", "Not changed");
 	printf ("   %-20s |%10d |%10d |%11d|\n","Brightness",br_stat[0],br_stat[1],br_stat[2]);
 	printf ("   %-20s |%10d |%10d |%11d|\n","Contrast",contr_stat[0],contr_stat[1],contr_stat[2]);
-	printf ("   %-20s |%10d |%10d |%11d|\n","Saturation",sat_stat[0],sat_stat[1],sat_stat[2]);		
 	printf ("   %-20s |%10d |%10d |%11d|\n","Sharpness",sharp_stat[0],sharp_stat[1],sharp_stat[2]);	
+	printf ("   %-20s |%10d |%10d |%11d|\n","Saturation",sat_stat[0],sat_stat[1],sat_stat[2]);		
+
 	}
