@@ -57,7 +57,7 @@ static int sharp_stat[3]={0,0,0};
 static int sat_stat[3]={0,0,0};
 void help ();
 static string filename; 
-const char *version="1.6.1";
+const char *version="1.6.2";
 //const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
 //const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3}; // v 1.6
 const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
@@ -309,7 +309,7 @@ void help (){
 	cout << "At least one image must be provided, wildcards can be used:\n";
 	cout << " $cphix.bin i*g myphoto.JPG\n";
 	cout << " (name of binary can differ)\n";
-	cout << "As by now, \"final_\" prefix is appended to the filename. Original images are not touched (of course).\n";	
+	cout << "By default \"final_\" prefix is appended to the filename. Original images are not touched (of course).\n";	
 	cout << "\n =====   CLI switches =======\n";
 	printf("%-20s  %s\n", "--half", "Process only half of image");
 	printf("%-20s  %s\n", "--nosat", "Do not modify saturation");
@@ -909,7 +909,11 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 		(*img)(img_x_pos,img_y_pos,1)=newg;
 		(*img)(img_x_pos,img_y_pos,2)=newb;
 	}}
-
+	
+	delete[] bg_weight;
+	delete[] bg_weight_blurred;
+	delete[] fg_weight;
+	delete[] fg_weight_blurred;
 }
 
 	
