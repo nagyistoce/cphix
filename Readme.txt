@@ -1,6 +1,6 @@
 Cphix is CLI tool to normalize images intended primarily for linux.
  
-Current version 1.6.1
+Current version 1.6.3
 HOME: http://code.google.com/p/cphix/
 (see wiki section there also)
 
@@ -18,6 +18,7 @@ As by now, "final_" prefix is appended to the filename. Original images are not 
  =====   CLI switches =======
 --half                Process only half of image
 --nosat               Do not modify saturation
+--bw                  Black-and-white image
 --nobr                Do not modify brightness (&contrast)
 --nosharp             No sharpening (USM)
 --version; -v         Prints out version (and proceeds with processing)
@@ -63,4 +64,4 @@ tiborb95 at gmail dot com
 Your feedback is WELCOMED !
 
 
-Updated: 25 Sep 2013
+Updated: 27 Sep 2013

@@ -57,7 +57,7 @@ static int sharp_stat[3]={0,0,0};
 static int sat_stat[3]={0,0,0};
 void help ();
 static string filename; 
-const char *version="1.6.2";
+const char *version="1.6.3";
 //const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
 //const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3}; // v 1.6
 const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
@@ -201,27 +201,32 @@ void arg_processing (int argc,char** argv){
 			else {
 				cout << " --typos needs an parameter (float or integer) \n";
 				shadow_argv[n]=true; }}				
-			
-			
-			
-			
 		// --mpx		
-		if (strcmp (argv[n],"--mpx") == 0 || strcmp (argv[n],"--MPx") == 0) {
+		if (strcmp (argv[n],"--mpx") == 0 ) {
 			if (shadow_argv[n+1]==false && n+1<argc) {
-				tmpfloat=atof(argv[n+1]);
-				//maindata.mpx_resize=atof(argv[n+1]);
-				if (tmpfloat==0)
-					printf (" ! Check the argument for --mpx  \n");
-				else if (tmpfloat<0.01 || tmpfloat>15){
-					printf (" ! --mpx got value out of allowed range (0,01-15), no resize... \n");
-					maindata.mpx_resize=0;}	
-				else {
-					maindata.mpx_resize=tmpfloat;
-					printf (" * Image(s) will be resized to: %.2f MPx \n",maindata.mpx_resize);}
+				parse_float(argv[n+1],0.01,15,&maindata.mpx_resize,*argv[n],"Output image resolution");
 				shadow_argv[n]=true;shadow_argv[n+1]=true; }
 			else {
 				cout << " --mpx needs an parameter (float or integer) \n";
-				shadow_argv[n]=true; }}				
+				shadow_argv[n]=true; }}			
+		
+		
+		//if (strcmp (argv[n],"--mpx") == 0 || strcmp (argv[n],"--MPx") == 0) {
+			//if (shadow_argv[n+1]==false && n+1<argc) {
+				//tmpfloat=atof(argv[n+1]);
+				////maindata.mpx_resize=atof(argv[n+1]);
+				//if (tmpfloat==0)
+					//printf (" ! Check the argument for --mpx  \n");
+				//else if (tmpfloat<0.01 || tmpfloat>15){
+					//printf (" ! --mpx got value out of allowed range (0,01-15), no resize... \n");
+					//maindata.mpx_resize=0;}	
+				//else {
+					//maindata.mpx_resize=tmpfloat;
+					//printf (" * Image(s) will be resized to: %.2f MPx \n",maindata.mpx_resize);}
+				//shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			//else {
+				//cout << " --mpx needs an parameter (float or integer) \n";
+				//shadow_argv[n]=true; }}				
 		// --minsat
 		if (strcmp (argv[n],"--minsat") == 0 ) {
 			if (shadow_argv[n+1]==false && n+1<argc) {
@@ -313,6 +318,7 @@ void help (){
 	cout << "\n =====   CLI switches =======\n";
 	printf("%-20s  %s\n", "--half", "Process only half of image");
 	printf("%-20s  %s\n", "--nosat", "Do not modify saturation");
+	printf("%-20s  %s\n", "--bw", "Black-and-white image");
 	printf("%-20s  %s\n", "--nobr", "Do not modify brightness (&contrast)");
 	printf("%-20s  %s\n", "--nosharp", "No sharpening (USM)");	
 	printf("%-20s  %s\n", "--version; -v", "Prints out version (and proceeds with processing)");
@@ -1360,16 +1366,16 @@ int main(int argc, char** argv){
 		//inserting text
 		insert_text(&final_img,maindata.xpos,maindata.ypos,maindata.textsize);
 		
-
-		
-		//ulozenie
+		//rescale
 		if (maindata.mpx_resize>0){
 			int new_x,new_y;
-			new_x=maindata.source_x_size * my_pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
-			new_y=maindata.source_y_size * my_pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
+			new_x=maindata.source_x_size * pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
+			new_y=maindata.source_y_size * pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
 			printf ("  Rescaling to %2d x %2d (%.2f MPx)\n",new_x,new_y,new_x*new_y/1000000.0);
 			final_img.resize(new_x,new_y,-100,-100,5);
 			}
+		
+		//saving
 		try{
 			if 			(maindata.output==PNG) final_img.save_png(char_savename);	
 			else		final_img.save_jpeg(char_savename,89);
