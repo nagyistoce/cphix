@@ -30,6 +30,9 @@ using namespace cimg_library;
 #include "easyexif/exif.h"
 #include <errno.h>
 
+#define RWEIGHT 0.3
+#define GWEIGHT 0.5
+#define BWEIGHT 0.2
 #define POINTSPERLINE 15
 #define FALSE 0
 #define TRUE 1
@@ -42,6 +45,9 @@ using namespace cimg_library;
 #define PNG 51
 #define PARSINGSUCCESS 61
 #define PARSINGFAILED 62
+#define RTARGET 0 //0.01
+#define GTARGET 0 //0.01
+#define BTARGET 0 //-0.04
 
 
 static 	vector<string> images; 
@@ -55,16 +61,21 @@ static int br_stat[3]={0,0,0};
 static int contr_stat[3]={0,0,0};
 static int sharp_stat[3]={0,0,0};
 static int sat_stat[3]={0,0,0};
+static int rgbalign_stat=0;
 void help ();
 static string filename; 
-const char *version="1.6.3";
+const char *version="1.6.2";
 //const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
 //const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3}; // v 1.6
 const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
 
+static float minofmaxr=1,minofmaxg=1,minofmaxb=1,maxofminr=-1,maxofming=-1,maxofminb=-1,rmiddle=0,gmiddle=0,bmiddle=0;
+//minofmaxr=1;minofmaxg=1;minofmaxb=1;maxofminr=-1;maxofming=-1;maxofminb=-1;
+
 void get_brightness(float value, float br_gamma, float contr_gamma, float *new_br, float *new_contr);
-void get_ordered(float *array);
+void get_ordered(float *array,int length);
 float get_waverage(float *array,float gamma);
+float get_average(float *array,int count);
 float calculate_brightness(float r,float g, float b);
 void resaturate(int basepos, float saturation_gamma, float *newr,float *newg,float *newb,float *applied_sat);
 int test_file(const char* file);
@@ -88,6 +99,7 @@ typedef struct
 	bool nosharp;
 	float mpx_resize;
 	int output;
+	bool rgbalign;
 	float xpos;
 	float ypos;
 	float topacity;
@@ -104,7 +116,7 @@ typedef struct
 	char *title;
 	char *pattern;
 } MyMainVals;
-static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.20,0.40,0.14,0.3,FALSE,FALSE,FALSE,FALSE,0,JPG,0.95,0.92,1,FALSE,1,FALSE,FALSE};
+static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.20,0.40,0.14,0.3,FALSE,FALSE,FALSE,FALSE,0,JPG,TRUE,0.95,0.92,1,FALSE,1,FALSE,FALSE};
 
 
 void arg_processing (int argc,char** argv){
@@ -142,6 +154,10 @@ void arg_processing (int argc,char** argv){
 		if (strcmp (argv[n],"--bw") == 0 ) { 
 			cout << " * B/W output\n";
 			maindata.bw=TRUE;
+			shadow_argv[n]=true; }
+		if (strcmp (argv[n],"--norgbalign") == 0 ) { 
+			cout << " * No RGB align\n";
+			maindata.rgbalign=FALSE;
 			shadow_argv[n]=true; }
 		if (strcmp (argv[n],"--skip") == 0 ) { 
 			cout << " * Skipping if final image exists \n";
@@ -201,32 +217,27 @@ void arg_processing (int argc,char** argv){
 			else {
 				cout << " --typos needs an parameter (float or integer) \n";
 				shadow_argv[n]=true; }}				
+			
+			
+			
+			
 		// --mpx		
-		if (strcmp (argv[n],"--mpx") == 0 ) {
+		if (strcmp (argv[n],"--mpx") == 0 || strcmp (argv[n],"--MPx") == 0) {
 			if (shadow_argv[n+1]==false && n+1<argc) {
-				parse_float(argv[n+1],0.01,15,&maindata.mpx_resize,*argv[n],"Output image resolution");
+				tmpfloat=atof(argv[n+1]);
+				//maindata.mpx_resize=atof(argv[n+1]);
+				if (tmpfloat==0)
+					printf (" ! Check the argument for --mpx  \n");
+				else if (tmpfloat<0.01 || tmpfloat>15){
+					printf (" ! --mpx got value out of allowed range (0,01-15), no resize... \n");
+					maindata.mpx_resize=0;}	
+				else {
+					maindata.mpx_resize=tmpfloat;
+					printf (" * Image(s) will be resized to: %.2f MPx \n",maindata.mpx_resize);}
 				shadow_argv[n]=true;shadow_argv[n+1]=true; }
 			else {
 				cout << " --mpx needs an parameter (float or integer) \n";
-				shadow_argv[n]=true; }}			
-		
-		
-		//if (strcmp (argv[n],"--mpx") == 0 || strcmp (argv[n],"--MPx") == 0) {
-			//if (shadow_argv[n+1]==false && n+1<argc) {
-				//tmpfloat=atof(argv[n+1]);
-				////maindata.mpx_resize=atof(argv[n+1]);
-				//if (tmpfloat==0)
-					//printf (" ! Check the argument for --mpx  \n");
-				//else if (tmpfloat<0.01 || tmpfloat>15){
-					//printf (" ! --mpx got value out of allowed range (0,01-15), no resize... \n");
-					//maindata.mpx_resize=0;}	
-				//else {
-					//maindata.mpx_resize=tmpfloat;
-					//printf (" * Image(s) will be resized to: %.2f MPx \n",maindata.mpx_resize);}
-				//shadow_argv[n]=true;shadow_argv[n+1]=true; }
-			//else {
-				//cout << " --mpx needs an parameter (float or integer) \n";
-				//shadow_argv[n]=true; }}				
+				shadow_argv[n]=true; }}				
 		// --minsat
 		if (strcmp (argv[n],"--minsat") == 0 ) {
 			if (shadow_argv[n+1]==false && n+1<argc) {
@@ -318,9 +329,9 @@ void help (){
 	cout << "\n =====   CLI switches =======\n";
 	printf("%-20s  %s\n", "--half", "Process only half of image");
 	printf("%-20s  %s\n", "--nosat", "Do not modify saturation");
-	printf("%-20s  %s\n", "--bw", "Black-and-white image");
 	printf("%-20s  %s\n", "--nobr", "Do not modify brightness (&contrast)");
-	printf("%-20s  %s\n", "--nosharp", "No sharpening (USM)");	
+	printf("%-20s  %s\n", "--nosharp", "No sharpening (USM)");
+	printf("%-20s  %s\n", "--norgbalign", "Disable RGB alignment");		
 	printf("%-20s  %s\n", "--version; -v", "Prints out version (and proceeds with processing)");
 	printf("%-20s  %s\n", "--title $YOURTEXT", "Insert text into left bottom corner.");
 	printf("%-20s  %s\n", " ","(Use '' to encapsulate a text with blanks)");
@@ -336,9 +347,9 @@ void help (){
 	printf("%-20s  %s\n", "--minsharp $DECIMAL", "Modifies bottom sharpness target");
 	printf("%-20s  %s\n", "--png", "Save as 8-bit png, default is jpg");
 	printf("%-20s  %s\n", "--newname $PATTERN", "Naming pattern for final images, * will be replaced");
-	printf("%-20s  %s\n", " "					, " by old filename, # by images counter, so with pattern");
-	printf("%-20s  %s\n", " "					, " 'vacation_#_*', the name IMG_0586.jpg will be changed");
-	printf("%-20s  %s\n", " "					, " to 'vacation_0001_IMG_0586.jpg' ");
+	printf("%-20s  %s\n", " "				  , " by old filename, # by images counter, so with pattern");
+	printf("%-20s  %s\n", " "				  , " 'vacation_#_*', the name IMG_0586.jpg will be changed");
+	printf("%-20s  %s\n", " "				  , " to 'vacation_0001_IMG_0586.jpg' ");
 	printf("%-20s  %s\n", "--help; -h", "Prints help and quits");
 	printf("\n");
 	}
@@ -599,14 +610,14 @@ void double_calibrate(float *array, float *br_gamma, float *contr_gamma,float br
 }
 
 
-void get_ordered(float *array){
+void get_ordered(float *array,int length){
 	float tmp;
 	int i,j;
 	const bool verbose=FALSE;
 	
 	//ordering
-	for (j=0;j<POINTSPERLINE*POINTSPERLINE-1;j+=1){
-		for (i=0;i<POINTSPERLINE*POINTSPERLINE-1-j;i+=1){
+	for (j=0;j<length-1;j+=1){
+		for (i=0;i<length-1-j;i+=1){
 			if (array[i]>array[i+1]){tmp=array[i+1];array[i+1]=array[i];array[i]=tmp;}
 		}
 	}
@@ -619,14 +630,14 @@ void get_ordered(float *array){
 		//normal average
 		float sum1=0;
 		int wcount=0;
-		for (j=0;j<POINTSPERLINE*POINTSPERLINE;j+=1){
+		for (j=0;j<length;j+=1){
 			sum1	+=array[j];}
-		printf ( "   Normal average: %.3f\n", sum1/POINTSPERLINE/POINTSPERLINE);
+		printf ( "   Normal average: %.3f\n", sum1/length);
 		//weightordered average
 		int sum2=0;
-		for (j=0;j<POINTSPERLINE*POINTSPERLINE;j+=1){
+		for (j=0;j<length;j+=1){
 			sum2	+=array[j]*j;wcount+=j;}
-		printf ( "   Weightordered average: %.3f ( + %.2f%%)\n", (float)sum2/wcount , (float)(sum2/(float)wcount) / (sum1/(float)POINTSPERLINE/(float)POINTSPERLINE) * 100.0 - 100.0);}	
+		printf ( "   Weightordered average: %.3f ( + %.2f%%)\n", (float)sum2/wcount , (float)(sum2/(float)wcount) / (sum1/length * 100.0 - 100.0));}	
 	}
 
 float get_waverage(float *array,float gamma){
@@ -641,7 +652,16 @@ float get_waverage(float *array,float gamma){
 		}
 	return (float)sum/wcount;
 	}
-	
+
+float get_average(float *array,int count){
+	int i;
+	float sum=0;
+	for (i=0;i<count;i+=1){
+		sum+=array[i];}
+	return (float)sum/count;
+
+}
+		
 
 float my_pow(float base,float exp){
 	float weight;
@@ -655,7 +675,7 @@ float saturation_calibrate(float *array,float minlimit,float maxlimit,const char
 	const bool debug=FALSE;
 	//testing if there are enough samples for calibration - rework!
 	
-	get_ordered(&array[0]);
+	get_ordered(&array[0],POINTSPERLINE*POINTSPERLINE);
 	avg=get_waverage(&array[0],1.0);
 	*oldvalue=avg;
 	if (avg<0.01) {
@@ -679,7 +699,7 @@ float saturation_calibrate(float *array,float minlimit,float maxlimit,const char
 			resaturate(basepos,gamma,&newr,&newg,&newb,&new_sat);
 			array[basepos_sample]=new_sat;}}
 	
-		get_ordered(&array[0]);
+		get_ordered(&array[0],POINTSPERLINE*POINTSPERLINE);
 		avg=get_waverage(&array[0],gamma);
 		//if (j==0) *oldvalue=avg;
 		if (avg>= minlimit && avg<=maxlimit) break;
@@ -1028,33 +1048,148 @@ void populate_sat(){
 			sat[basepos]=calculate_saturation(basepos);}}
 	}	
 
-//float get_disalignment(){
-	//int halfstepx,halfstepy,x,y,basepos,count,xpoint,ypoint;
-	//float sumr,sumg,sumb;
+void realign(float change, int rchange,int gchange, int bchange, float *rdiff,float *gdiff,float *bdiff){
+	float base;
+	const bool debug=FALSE;
+	float effchange,fullchange,currentweight,reminder;
 	
-	//count=0;sumr=0;sumg=0;sumb=0;
-	//halfstepx=maindata.source_x_size/POINTSPERLINE/2.0;
-	//halfstepy=maindata.source_y_size/POINTSPERLINE/2.0;
-	//for (xpoint=0;xpoint<POINTSPERLINE;xpoint+=1) {for (ypoint=0;ypoint<POINTSPERLINE;ypoint+=1) {	
-		//x=halfstepx+xpoint*maindata.source_x_size/POINTSPERLINE;
-		//y=halfstepy+ypoint*maindata.source_y_size/POINTSPERLINE;
-		////printf (" Testing pixel %4d x %4d\n",x,y);
-		//basepos=get_basepos(x,y,maindata.source_x_size);
-		//if (br[basepos] + (max (r[basepos], max(g[basepos],b[basepos]))) > 0.98) continue;
-		//if (br[basepos] - (min (r[basepos], min(g[basepos],b[basepos]))) < 0.02) continue;
-		//sumr+=r[basepos];
-		//sumg+=g[basepos];
-		//sumb+=b[basepos];
-		//count+=1;
-		//}}
+	*rdiff-=rchange*change;
+	*gdiff-=gchange*change;
+	*bdiff-=bchange*change;	
+	if (debug) printf ("     realign subresults: %6.3f %6.3f %6.3f\n",
+		*rdiff,*gdiff,*bdiff);
+
+	currentweight=(RWEIGHT*rchange+GWEIGHT*gchange+BWEIGHT*bchange);
+	reminder=-currentweight/(1-currentweight);
+
+	fullchange=change;// (rchange*RWEIGHT + gchange*GWEIGHT + bchange*BWEIGHT);
+
+	if (debug) printf ("     realign reminder: %6.3f\n",reminder);
+	*rdiff+= (rchange-1)*change*reminder;
+	*gdiff+= (gchange-1)*change*reminder;
+	*bdiff+= (bchange-1)*change*reminder;
+	if (debug) printf ("    realign result: diffs: %6.4f %6.4f %6.4f, check average %6.4f\n",
+		*rdiff,*gdiff,*bdiff,calculate_brightness(*rdiff,*gdiff,*bdiff));
+}
+	
+
+void get_disalignment(){
+	int halfstepx,halfstepy,x,y,basepos,count,xpoint,ypoint;
+	float rarray[POINTSPERLINE*POINTSPERLINE];
+	float garray[POINTSPERLINE*POINTSPERLINE];
+	float barray[POINTSPERLINE*POINTSPERLINE];
+	const bool debug=FALSE;	
+	int bottom,top;
+	float rbottom,rtop,gbottom,gtop,bbottom,btop;
+	float rdiff,gdiff,bdiff;
+	int i;
+	float oldrbottom,oldrtop,oldgbottom,oldgtop,oldbbottom,oldbtop;
+
+	rdiff=0;gdiff=0;bdiff=0;
+
+
+	
+	count=0;//sumr=0;sumg=0;sumb=0;
+	halfstepx=maindata.source_x_size/POINTSPERLINE/2.0;
+	halfstepy=maindata.source_y_size/POINTSPERLINE/2.0;
+	for (xpoint=0;xpoint<POINTSPERLINE;xpoint+=1) {for (ypoint=0;ypoint<POINTSPERLINE;ypoint+=1) {	
+		x=halfstepx+xpoint*maindata.source_x_size/POINTSPERLINE;
+		y=halfstepy+ypoint*maindata.source_y_size/POINTSPERLINE;
+		//printf (" Testing pixel %4d x %4d\n",x,y);
+		basepos=get_basepos(x,y,maindata.source_x_size);
+		if (br[basepos] + (max (r[basepos], max(g[basepos],b[basepos]))) > 0.98) continue;
+		if (br[basepos] - (min (r[basepos], min(g[basepos],b[basepos]))) < 0.02) continue;
+		rarray[count]=r[basepos];
+		garray[count]=g[basepos];
+		barray[count]=b[basepos];	
+		count=count+1;	
+		}}
+
+	if (count <80) {
+		printf ("   Not enough good pixels for rgb alignment check...\n");
+		return;
+	}
+
+	if (debug) printf ("  Good pixels for alignment: %1d\n",count);
+	//sorting
+	get_ordered(&rarray[0],count);
+	get_ordered(&garray[0],count);
+	get_ordered(&barray[0],count);	
+	
+	bottom=0.2*count;
+	top=0.8*count;	
+
+	oldrbottom=get_average(&rarray[0],bottom);
+	oldrtop   =get_average(&rarray[top],count-top);
+	oldgbottom=get_average(&garray[0],bottom);
+	oldgtop   =get_average(&garray[top],count-top);
+	oldbbottom=get_average(&barray[0],bottom);
+	oldbtop   =get_average(&barray[top],count-top);
+	rmiddle+=(oldrbottom+oldrtop)/2.0;
+	gmiddle+=(oldgbottom+oldgtop)/2.0;
+	bmiddle+=(oldbbottom+oldbtop)/2.0;
+	if (oldrbottom>maxofminr) maxofminr=oldrbottom;
+	if (oldgbottom>maxofming) maxofming=oldgbottom;
+	if (oldbbottom>maxofminb) maxofminb=oldbbottom;
+	if (oldrtop<minofmaxr)   minofmaxr=oldrtop;
+	if (oldgtop<minofmaxg)   minofmaxg=oldgtop;
+	if (oldbtop<minofmaxb)   minofmaxb=oldbtop;
+	
+	for (i=0;i<5;i+=1){
+	
+		rbottom=oldrbottom+rdiff;
+		rtop   =oldrtop+rdiff;
+		gbottom=oldgbottom+gdiff;
+		gtop   =oldgtop+gdiff;
+		bbottom=oldbbottom+bdiff;
+		btop   =oldbtop+bdiff;
+
+		if (debug) printf ("   Alignment iteration: %1d, tresholds: %3d - %3d \n",i,bottom,top);
+		if (debug) printf ("    r tresholds: %6.3f - %6.3f \n",rbottom,rtop);
+		if (debug) printf ("    g tresholds: %6.3f - %6.3f \n",gbottom,gtop);
+		if (debug) printf ("    b tresholds: %6.3f - %6.3f \n",bbottom,btop);
+		if (rbottom>RTARGET){
+			realign(rbottom,1,0,0,&rdiff,&gdiff,&bdiff);
+			if (debug) printf ("      changing r by: %6.3f\n",rdiff);
+			continue;}
+		if (rtop<RTARGET){
+			realign(rtop,1,0,0,&rdiff,&gdiff,&bdiff);			
+			if (debug) printf ("      changing r by: %6.3f\n",rdiff);
+			continue;}
+		if (gbottom>GTARGET){
+			realign(gbottom,0,1,0,&rdiff,&gdiff,&bdiff);	
+			if (debug) printf ("      changing g by: %3f\n",gdiff);
+			continue;}
+		if (gtop<GTARGET){
+			realign(gtop,0,1,0,&rdiff,&gdiff,&bdiff);
+			if (debug) printf ("      changing g by: %3f\n",gdiff);
+			continue;}
+		if (bbottom>BTARGET){
+			realign(bbottom,0,0,1,&rdiff,&gdiff,&bdiff);
+			if (debug) printf ("      changing b by: %3f\n",bdiff);
+			continue;}
+		if (btop<BTARGET){
+			realign(btop,0,0,1,&rdiff,&gdiff,&bdiff);
+			if (debug) printf ("      changing b by: %3f\n",bdiff);
+			continue;}			
+		//no need for further iterations
+		break;
+	}
+	
+	if (rdiff==0 && gdiff==0 && bdiff==0) return;
+	
+	rgbalign_stat+=1;
+	for (i=0;i<maindata.source_x_size*maindata.source_y_size;i+=1) {
+		r[i]+=rdiff;
+		g[i]+=gdiff;
+		b[i]+=bdiff;}
 		
-	//for (x=0;x<maindata.source_x_size*maindata.source_y_size;x+=1){
-	//r[x]=r[x]-sumr/count;
-	//g[x]=g[x]-sumg/count;
-	//b[x]=b[x]-sumb/count;}
-	
-	//printf("  rgb disalignment: %.3f %.3f %.3f (samples: %1d)\n",sumr/count,sumg/count,sumb/count,count);
-//}
+	printf("  Fixing RGB disalignment: %.3f %.3f %.3f\n",rdiff,gdiff,bdiff);
+	if (debug) {
+		if (debug) printf ("    new r tresholds: %6.3f - %6.3f \n",rbottom,rtop);
+		if (debug) printf ("    new g tresholds: %6.3f - %6.3f \n",gbottom,gtop);
+		if (debug) printf ("    new b tresholds: %6.3f - %6.3f \n",bbottom,btop);}
+}
 
 void populate(CImg<unsigned char>* srcimgL){
 	int x,y,basepos,R,G,B;
@@ -1126,7 +1261,8 @@ void populate(CImg<unsigned char>* srcimgL){
 float calculate_brightness(float r,float g, float b){
 	float brightness;
 	//brightness=( 4.0 * (3.0*r+6.0*g+b)/10.0 + max(r,max(g,b))  ) / 5.0;
-	brightness=r*0.3 + g*0.5+ b*0.2;
+	brightness=r*RWEIGHT + g*GWEIGHT + b*BWEIGHT;
+	//brightness=r*0.3 + g*0.5+ b*0.2;
 	
 	return brightness;
 	}
@@ -1303,7 +1439,7 @@ int main(int argc, char** argv){
 		populate(&srcimg);
 		
 		//processing color disalignment
-		//get_disalignment();
+		if (maindata.rgbalign) get_disalignment();
 
 		//processing/changing brightness
 		take_samples(BRIGHT);
@@ -1323,7 +1459,7 @@ int main(int argc, char** argv){
 		if (maindata.nosharp==FALSE) {
 			blur(&br[0],&mask1[0],0.1,maindata.source_x_size,maindata.source_y_size);  // blurring br to mask1
 			take_samples(SHARP);										//taking samples
-			get_ordered(&sample_sharp1[0]);								//ordering them
+			get_ordered(&sample_sharp1[0],POINTSPERLINE*POINTSPERLINE);								//ordering them
 			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp1,maindata.maxsharp1,1.0,"Sharpness",2,&tmp);
 			put_in_stat(1.0/sharpness_boost,&sharp_stat[0]);		 	//calculating sharpness boost
 			apply_sharp_boost(sharpness_boost);							//changing br
@@ -1366,16 +1502,16 @@ int main(int argc, char** argv){
 		//inserting text
 		insert_text(&final_img,maindata.xpos,maindata.ypos,maindata.textsize);
 		
-		//rescale
+
+		
+		//ulozenie
 		if (maindata.mpx_resize>0){
 			int new_x,new_y;
-			new_x=maindata.source_x_size * pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
-			new_y=maindata.source_y_size * pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
+			new_x=maindata.source_x_size * my_pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
+			new_y=maindata.source_y_size * my_pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
 			printf ("  Rescaling to %2d x %2d (%.2f MPx)\n",new_x,new_y,new_x*new_y/1000000.0);
 			final_img.resize(new_x,new_y,-100,-100,5);
 			}
-		
-		//saving
 		try{
 			if 			(maindata.output==PNG) final_img.save_png(char_savename);	
 			else		final_img.save_jpeg(char_savename,89);
@@ -1399,4 +1535,8 @@ int main(int argc, char** argv){
 	printf ("   %-20s |%10d |%10d |%11d|\n","Sharpness",sharp_stat[0],sharp_stat[1],sharp_stat[2]);	
 	printf ("   %-20s |%10d |%10d |%11d|\n","Saturation",sat_stat[0],sat_stat[1],sat_stat[2]);		
 
+	printf ("  innter limits of r: %6.3f - %6.3f, middle value: %6.3f\n",maxofminr,minofmaxr,rmiddle/img_count);
+	printf ("  innter limits of g: %6.3f - %6.3f, middle value: %6.3f\n",maxofming,minofmaxg,gmiddle/img_count);
+	printf ("  innter limits of b: %6.3f - %6.3f, middle value: %6.3f\n",maxofminb,minofmaxb,bmiddle/img_count);
+	printf("   RGB aligned images: %3d\n",rgbalign_stat);
 	}
