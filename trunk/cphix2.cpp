@@ -59,12 +59,13 @@ static float sample_sharp1[POINTSPERLINE*POINTSPERLINE];
 static int allocated=0;
 static int br_stat[3]={0,0,0};
 static int contr_stat[3]={0,0,0};
-static int sharp_stat[3]={0,0,0};
+static int sharp_stat1[3]={0,0,0};
+static int sharp_stat2[3]={0,0,0};
 static int sat_stat[3]={0,0,0};
 static int rgbalign_stat=0;
 void help ();
 static string filename; 
-const char *version="1.6.2";
+const char *version="1.6.4";
 //const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
 //const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3}; // v 1.6
 const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
@@ -74,7 +75,7 @@ static float minofmaxr=1,minofmaxg=1,minofmaxb=1,maxofminr=-1,maxofming=-1,maxof
 
 void get_brightness(float value, float br_gamma, float contr_gamma, float *new_br, float *new_contr);
 void get_ordered(float *array,int length);
-float get_waverage(float *array,float gamma);
+float get_waverage(float *array,float gamma=1, float startpos=0);
 float get_average(float *array,int count);
 float calculate_brightness(float r,float g, float b);
 void resaturate(int basepos, float saturation_gamma, float *newr,float *newg,float *newb,float *applied_sat);
@@ -93,6 +94,8 @@ typedef struct
 	float maxsat;
 	float minsharp1;
 	float maxsharp1;
+	float minsharp2;
+	float maxsharp2;
 	bool nobr;
 	bool nosat;
 	bool savemask;
@@ -116,7 +119,7 @@ typedef struct
 	char *title;
 	char *pattern;
 } MyMainVals;
-static MyMainVals  maindata={0.45,0.68,0.30,0.45,FALSE,0.20,0.40,0.14,0.3,FALSE,FALSE,FALSE,FALSE,0,JPG,TRUE,0.95,0.92,1,FALSE,1,FALSE,FALSE};
+static MyMainVals  maindata={0.45,0.73,0.30,0.5,FALSE,0.20,0.40,0.32,1.0,0.32,1.0,FALSE,FALSE,FALSE,FALSE,0,JPG,TRUE,0.95,0.92,1,FALSE,1,FALSE,FALSE};
 
 
 void arg_processing (int argc,char** argv){
@@ -167,7 +170,7 @@ void arg_processing (int argc,char** argv){
 			printf (" * Version: %s\n",version);
 			shadow_argv[n]=true; }
 		if (strcmp (argv[n],"--savemask") == 0 ) { 
-			cout << " * Saving blurred mask. \n";
+			cout << " * Saving blurred masks \n";
 			maindata.savemask=TRUE;
 			shadow_argv[n]=true; }
 		if (strcmp (argv[n],"--title") == 0 || strcmp (argv[n],"--text") == 0 ) { 
@@ -218,8 +221,38 @@ void arg_processing (int argc,char** argv){
 				cout << " --typos needs an parameter (float or integer) \n";
 				shadow_argv[n]=true; }}				
 			
-			
-			
+
+
+		if (strcmp (argv[n],"--minbr") == 0 ) {
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				parse_float(argv[n+1],0,1,&maindata.minbr,*argv[n],"Minimal brightness");
+				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			else {
+				cout << " --minbr needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }}				
+		if (strcmp (argv[n],"--maxbr") == 0 ) {
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				parse_float(argv[n+1],0,1,&maindata.maxbr,*argv[n],"Maximal brightness");
+				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			else {
+				cout << " --maxbr needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }}				
+		
+		//contr				
+		if (strcmp (argv[n],"--mincontr") == 0 ) {
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				parse_float(argv[n+1],0,1,&maindata.mincontr,*argv[n],"Minimal contrast");
+				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			else {
+				cout << " --mincontr needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }}				
+		if (strcmp (argv[n],"--maxcontr") == 0 ) {
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				parse_float(argv[n+1],0,1,&maindata.maxcontr,*argv[n],"Maximal contrast");
+				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+			else {
+				cout << " --maxcontr needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }}				
 			
 		// --mpx		
 		if (strcmp (argv[n],"--mpx") == 0 || strcmp (argv[n],"--MPx") == 0) {
@@ -271,24 +304,26 @@ void arg_processing (int argc,char** argv){
 				shadow_argv[n]=true; }
 			}
 	
-		// --minsharp				
-		if (strcmp (argv[n],"--minsharp") == 0 ||  strcmp (argv[n],"--minsh") == 0 ) {
+		// --minsharp1
+		if (strcmp (argv[n],"--minsharp1") == 0 ) {	
 			if (shadow_argv[n+1]==false && n+1<argc) {
-				tmpfloat=atof(argv[n+1]);
-				if (tmpfloat==0)
-					printf (" ! Check the argument for --minsharp  \n");
-				else if (tmpfloat<0.01 || tmpfloat>0.5)
-					printf (" ! --minsharp got value out of allowed range (0,01-0.5), using default... \n");
-				else {
-					maindata.minsharp1=tmpfloat;
-					printf (" * Minimal sharpness set to: %.2f \n",maindata.minsharp1);}
-				shadow_argv[n]=true;shadow_argv[n+1]=true; }
+				parse_float(argv[n+1],0,1,&maindata.minsharp1,*argv[n],"Minimal sharpness (radius 0.1)");
+				shadow_argv[n]=true;shadow_argv[n+1]=true; 
+				if (maindata.maxsharp1<maindata.minsharp1+0.05) maindata.maxsharp1=maindata.minsharp1+0.05;}
 			else {
-				cout << " --minsharp needs an parameter (float or integer) \n";
-				shadow_argv[n]=true; }
-				if (maindata.maxsharp1<maindata.minsharp1+0.05) maindata.maxsharp1=maindata.minsharp1+0.05; 
-				}			
+				cout << " --minsharp1 needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }}	
+		// --minsharp2
+		if (strcmp (argv[n],"--minsharp2") == 0 ) {	
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				parse_float(argv[n+1],0,1,&maindata.minsharp2,*argv[n],"Minimal sharpness (radius 0.01)");
+				shadow_argv[n]=true;shadow_argv[n+1]=true; 
+				if (maindata.maxsharp2<maindata.minsharp2+0.05) maindata.maxsharp2=maindata.minsharp2+0.05;}
+			else {
+				cout << " --minsharp2 needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }}			
 		
+					
 				
 		if (strcmp (argv[n],"--help") == 0 || strcmp (argv[n],"-h") == 0) {
 	   	    help ();exit (1); }
@@ -327,12 +362,25 @@ void help (){
 	cout << " (name of binary can differ)\n";
 	cout << "By default \"final_\" prefix is appended to the filename. Original images are not touched (of course).\n";	
 	cout << "\n =====   CLI switches =======\n";
+	printf("  GENERAL CONTROLS\n");	
 	printf("%-20s  %s\n", "--half", "Process only half of image");
+	printf("%-20s  %s\n", "--skip", "Skip image if final image exists.");
+	printf("%-20s  %s\n", "--png", "Save as 8-bit png, default is jpg");
+	printf("%-20s  %s\n", "--newname $PATTERN", "Naming pattern for final images, % will be replaced");
+	printf("%-20s  %s\n", " "				  , " by old filename, # by images counter, so with pattern");
+	printf("%-20s  %s\n", " "				  , " 'vacation_#_%', the name IMG_0586.jpg will be changed");
+	printf("%-20s  %s\n", " "				  , " to 'vacation_0001_IMG_0586.jpg' ");
+	printf("%-20s  %s\n", "--mpx $DECIMAL", "Final size of image in MPx");
+	printf("%-20s  %s\n", "--version; -v", "Prints out version (and proceeds with processing)");
+	printf("%-20s  %s\n", "--help; -h", "Prints help and quits");
+	
+	printf("  DISABLING AN MODIFICATION\n");		
 	printf("%-20s  %s\n", "--nosat", "Do not modify saturation");
 	printf("%-20s  %s\n", "--nobr", "Do not modify brightness (&contrast)");
 	printf("%-20s  %s\n", "--nosharp", "No sharpening (USM)");
 	printf("%-20s  %s\n", "--norgbalign", "Disable RGB alignment");		
-	printf("%-20s  %s\n", "--version; -v", "Prints out version (and proceeds with processing)");
+
+	printf("  INSERTING A TEXT\n");
 	printf("%-20s  %s\n", "--title $YOURTEXT", "Insert text into left bottom corner.");
 	printf("%-20s  %s\n", " ","(Use '' to encapsulate a text with blanks)");
 	printf("%-20s  %s\n", "--textsize $FLOAT", "Relative size of text (default: 1).");
@@ -341,16 +389,16 @@ void help (){
 	printf("%-20s  %s\n", "--typos $FLOAT", "Text y (vert.) position (0-1,default: 1).");	
 	printf("%-20s  %s\n", " ", "(Coordinates starts on upper left corner. Relative");	
 	printf("%-20s  %s\n", " ", " positions refer to bottom right corner of text label).");			
-	printf("%-20s  %s\n", "--skip", "Skip image if final image exists.");	
-	printf("%-20s  %s\n", "--mpx $DECIMAL", "Final size of image in MPx");
-	printf("%-20s  %s\n", "--minsat $DECIMAL", "Modifies bottom saturation target");
-	printf("%-20s  %s\n", "--minsharp $DECIMAL", "Modifies bottom sharpness target");
-	printf("%-20s  %s\n", "--png", "Save as 8-bit png, default is jpg");
-	printf("%-20s  %s\n", "--newname $PATTERN", "Naming pattern for final images, * will be replaced");
-	printf("%-20s  %s\n", " "				  , " by old filename, # by images counter, so with pattern");
-	printf("%-20s  %s\n", " "				  , " 'vacation_#_*', the name IMG_0586.jpg will be changed");
-	printf("%-20s  %s\n", " "				  , " to 'vacation_0001_IMG_0586.jpg' ");
-	printf("%-20s  %s\n", "--help; -h", "Prints help and quits");
+	
+	printf("  MODIFICATION OF TARGETS\n");
+	printf("%-20s  %s\n", "--minbr $DECIMAL", "(Brightness and contrast are coupled");
+	printf("%-20s  %s\n", "--maxbr $DECIMAL", " together, so exteme value in any of them");
+	printf("%-20s  %s\n", "--mincontr $DECIMAL", " can lead to undesired results)");
+	printf("%-20s  %s\n", "--maxcontr $DECIMAL", "");	
+	printf("%-20s  %s\n", "--minsat $DECIMAL", "Minimal saturation");
+	printf("%-20s  %s\n", "--minsharp1 $DECIMAL", "Minimal sharpness (blur radius 0.1)");
+	printf("%-20s  %s\n", "--minsharp2 $DECIMAL", "Minimal sharpness (blur radius 0.01)");
+
 	printf("\n");
 	}
 
@@ -382,8 +430,9 @@ int parse_float(const char* argument,float downlimit, float uplimit, float *resu
 	
 
 
-void take_samples(int action){
+void take_samples(int action,float uptresh=10){
 	int x,y,xpoint,ypoint,basepos,halfstepx,halfstepy,basepos_sample;
+	const bool debug=FALSE;
 	
 	halfstepx=maindata.source_x_size/POINTSPERLINE/2.0;
 	halfstepy=maindata.source_y_size/POINTSPERLINE/2.0;
@@ -397,8 +446,13 @@ void take_samples(int action){
 			{sample_br[basepos_sample]=br[basepos];
 			sample_sat[basepos_sample]=sat[basepos];
 			}
-		if (action==SHARP)
-			sample_sharp1[basepos_sample]=abs(br[basepos]-mask1[basepos]);
+		if (action==SHARP){
+			sample_sharp1[basepos_sample]=abs(br[basepos]-mask1[basepos])/mask1[basepos];
+			if (sample_sharp1[basepos_sample]>uptresh) {
+				if (debug) printf(" Cropping value: %.3f to %.3f\n",sample_sharp1[basepos_sample],uptresh);
+				sample_sharp1[basepos_sample]=uptresh;
+				}
+			}
 		if (action==SATUR)
 			{
 			sample_sat[basepos_sample]=sat[basepos];
@@ -500,15 +554,15 @@ void apply_gamma(float *array, float gamma){
 	}
 	}
 
-float linear_calibrate(float *array,float minlimit,float maxlimit,float pre_gamma,const char *title,float tresh, float *newvalue){
+float linear_calibrate(float *array,float minlimit,float maxlimit,float pre_gamma,const char *title,float tresh, float *newvalue,float wtresh=0){
 	//int i,good,outofrange;
 	float avg,boost;
 	float oldvalue;
 
 	
 	//testing if values are big enough for meaningfull processing
-		
-	avg=get_waverage(&array[0],pre_gamma);
+	//printf ("Effect of wtresh: %.3f vs. %.3f\n",get_waverage(&array[0],pre_gamma,wtresh),get_waverage(&array[0],pre_gamma)	);
+	avg=get_waverage(&array[0],pre_gamma,wtresh);
 	oldvalue=avg;
 	if (avg<0.01) {
 		printf ("  Image with extremely low values (%.3f), using boost=1\n",avg);
@@ -553,7 +607,7 @@ void get_brightness(float value, float br_gamma, float contr_gamma, float *new_b
 	}
 
 
-void double_calibrate(float *array, float *br_gamma, float *contr_gamma,float br_min,float br_max, float contr_min, float contr_max){
+void brightness_calibrate(float *array, float *br_gamma, float *contr_gamma){  //,float br_min,float br_max, float contr_min, float contr_max){
 	
 	*br_gamma=1.0;
 	*contr_gamma=1.0;
@@ -563,25 +617,45 @@ void double_calibrate(float *array, float *br_gamma, float *contr_gamma,float br
 	float new_contr=1.0;
 	int i,j;
 	float sum;
+	float tmpbr=0,tmpcontr=0;
 	float br_avg,contr_avg;
 	float oldbr, oldcontr;
 	const bool debug=FALSE;
+	float br_min,contr_min,br_max,contr_max;
+	float halfoffset=0.02;
+	//br_min=maindata.minbr;contr_min=maindata.mincontr;br_max=maindata.maxbr;contr_max=maindata.maxcontr;
 	
 	oldcontr=-1; //just to initialize it
+	//calculating current/old contrast and brightness
+	for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
+		get_brightness(array[i],1,1,&new_br,&new_contr);
+			tmpbr+=new_br;
+			tmpcontr+=new_contr;}
+	oldbr=tmpbr/POINTSPERLINE/POINTSPERLINE;
+	oldcontr=tmpcontr/POINTSPERLINE/POINTSPERLINE;	
+	
+	
+	if (oldbr-halfoffset<maindata.minbr) {br_min=maindata.minbr;br_max=maindata.minbr+2*halfoffset;}
+	else if (oldbr+halfoffset>maindata.maxbr) {br_max=maindata.maxbr;br_min=maindata.maxbr-2*halfoffset;}
+	else {br_max=oldbr+halfoffset;br_min=oldbr-halfoffset;}
+	if (oldcontr-halfoffset<maindata.mincontr) {contr_min=maindata.mincontr;contr_max=maindata.mincontr+2*halfoffset;}
+	else if (oldcontr+halfoffset>maindata.maxcontr) {contr_max=maindata.maxcontr;contr_min=maindata.maxcontr-2*halfoffset;}
+	else {contr_max=oldcontr+halfoffset;contr_min=oldcontr-halfoffset;}	
+	
 	
 	//in every step we test brightness and then contrast
-	for (j=0;j<30;j+=1){
-		if (debug) printf ("  double_calibrate - iteration: %1d\n",j);
+	for (j=0;j<100;j+=1){
+		if (debug) printf ("  brightness_calibrate - iteration: %1d\n",j);
 		//testing brightness
 		sum=0;
 		for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
 			get_brightness(array[i],l_br_gamma,l_contr_gamma,&new_br,&new_contr);
 			sum+=new_br;}
 		br_avg=sum/POINTSPERLINE/POINTSPERLINE;
-		if (j==0) oldbr=br_avg;
+		//if (j==0) oldbr=br_avg;
 		if (br_avg> br_min && br_avg<br_max) ;
-		else if (br_avg<br_min)l_br_gamma-=0.02;
-		else l_br_gamma+=0.02;
+		else if (br_avg<br_min)l_br_gamma*=0.985;
+		else l_br_gamma*=1.015;
 		
 		//testing contrast
 		sum=0;
@@ -589,10 +663,10 @@ void double_calibrate(float *array, float *br_gamma, float *contr_gamma,float br
 			get_brightness(array[i],l_br_gamma,l_contr_gamma,&new_br,&new_contr);
 			sum+=new_contr;}
 		contr_avg=sum/POINTSPERLINE/POINTSPERLINE;
-		if (j==0) oldcontr=contr_avg;
+		//if (j==0) oldcontr=contr_avg;
 		if (contr_avg> contr_min && contr_avg<contr_max) ;
-		else if (contr_avg>contr_max)l_contr_gamma+=0.02;
-		else l_contr_gamma-=0.02;	
+		else if (contr_avg>contr_max)l_contr_gamma*=1.015;
+		else l_contr_gamma*=0.985;	
 		
 		if (debug) printf(" Iter. results: br gamma: %.2f / value: %.3f; contrast gamma:%.2f / value: %.3f(targ:%.3f - %.3f)\n",
 					l_br_gamma,br_avg,l_contr_gamma,contr_avg,contr_min,contr_max);
@@ -602,10 +676,10 @@ void double_calibrate(float *array, float *br_gamma, float *contr_gamma,float br
 	*br_gamma= l_br_gamma  ;
 	*contr_gamma=l_contr_gamma;
 
-	printf("  Brightness gamma: %.2f, change: %.2f->%.2f (target: %.2f-%.2f)\n", 
-		*br_gamma,oldbr,br_avg,br_min,br_max);
-	printf("  Contrast gamma  : %.2f, change: %.2f->%.2f (target: %.2f-%.2f)\n", 
-		*contr_gamma,oldcontr,contr_avg,contr_min,contr_max);
+	printf("  Brightness gamma : %.2f, change: %.2f->%.2f (target: %.2f-%.2f / %.2f-%.2f)\n", 
+		*br_gamma,oldbr,br_avg,br_min,br_max,maindata.minbr,maindata.maxbr);
+	printf("  Contrast gamma   : %.2f, change: %.2f->%.2f (target: %.2f-%.2f / %.2f-%.2f)\n", 
+		*contr_gamma,oldcontr,contr_avg,contr_min,contr_max,maindata.mincontr,maindata.maxcontr);
 	
 }
 
@@ -640,15 +714,19 @@ void get_ordered(float *array,int length){
 		printf ( "   Weightordered average: %.3f ( + %.2f%%)\n", (float)sum2/wcount , (float)(sum2/(float)wcount) / (sum1/length * 100.0 - 100.0));}	
 	}
 
-float get_waverage(float *array,float gamma){
-	int i,wcount;
-	float sum;
+float get_waverage(float *array,float gamma, float startpos){
+	int i,wcount,startpoint;
 	
+	float sum;
+	if (startpos<0 || startpos>1){
+		printf(" !! Starpos error\n");
+		exit(6);}
+	startpoint=(int)((float)startpos*POINTSPERLINE*POINTSPERLINE);
 	sum=0;wcount=0;
 
-	for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
-		sum+= my_pow(array[i],gamma) * i;
-		wcount+=i;
+	for (i=startpoint;i<POINTSPERLINE*POINTSPERLINE;i+=1){
+		sum+= my_pow(array[i],gamma) * (i-startpoint);
+		wcount+=(i-startpoint);
 		}
 	return (float)sum/wcount;
 	}
@@ -673,10 +751,11 @@ float saturation_calibrate(float *array,float minlimit,float maxlimit,const char
 	float avg,gamma,newr,newg,newb,new_sat;
 	int j,basepos,basepos_sample,x,y,xpoint,ypoint,halfstepx,halfstepy;
 	const bool debug=FALSE;
+	const float startpoint=0.3;
 	//testing if there are enough samples for calibration - rework!
 	
 	get_ordered(&array[0],POINTSPERLINE*POINTSPERLINE);
-	avg=get_waverage(&array[0],1.0);
+	avg=get_waverage(&array[0],1,startpoint);
 	*oldvalue=avg;
 	if (avg<0.01) {
 		printf ("  Image with extremely low saturation (%.3f), not saturating...\n",avg);
@@ -700,7 +779,7 @@ float saturation_calibrate(float *array,float minlimit,float maxlimit,const char
 			array[basepos_sample]=new_sat;}}
 	
 		get_ordered(&array[0],POINTSPERLINE*POINTSPERLINE);
-		avg=get_waverage(&array[0],gamma);
+		avg=get_waverage(&array[0],gamma,startpoint);
 		//if (j==0) *oldvalue=avg;
 		if (avg>= minlimit && avg<=maxlimit) break;
 		
@@ -717,7 +796,7 @@ float saturation_calibrate(float *array,float minlimit,float maxlimit,const char
 		}		
 			
 		
-	printf("  %s gamma: %.2f, change: %.2f->%.2f (target: %.2f-%.2f)\n", 
+	printf("  %s gamma : %.2f, change: %.2f->%.2f (target: %.2f-%.2f)\n", 
 		title,gamma,*oldvalue,avg,minlimit,maxlimit);
 	*newvalue=avg;
 	return gamma;
@@ -1049,9 +1128,8 @@ void populate_sat(){
 	}	
 
 void realign(float change, int rchange,int gchange, int bchange, float *rdiff,float *gdiff,float *bdiff){
-	float base;
 	const bool debug=FALSE;
-	float effchange,fullchange,currentweight,reminder;
+	float currentweight,reminder;
 	
 	*rdiff-=rchange*change;
 	*gdiff-=gchange*change;
@@ -1062,7 +1140,7 @@ void realign(float change, int rchange,int gchange, int bchange, float *rdiff,fl
 	currentweight=(RWEIGHT*rchange+GWEIGHT*gchange+BWEIGHT*bchange);
 	reminder=-currentweight/(1-currentweight);
 
-	fullchange=change;// (rchange*RWEIGHT + gchange*GWEIGHT + bchange*BWEIGHT);
+	//fullchange=change;// (rchange*RWEIGHT + gchange*GWEIGHT + bchange*BWEIGHT);
 
 	if (debug) printf ("     realign reminder: %6.3f\n",reminder);
 	*rdiff+= (rchange-1)*change*reminder;
@@ -1333,7 +1411,7 @@ string get_new_name(string filename,int number){
 		patternlength=strlen(maindata.pattern);
 		if (debug) printf ("patternlength: %1d\n",patternlength);			
 		newname=maindata.pattern;
-		aspos=newname.find_first_of("*");
+		aspos=newname.find_first_of("%");
 		if (debug) printf (" find result: %.1d\n",aspos); 
 		if (aspos >-1) {
 			if (debug) printf ("   replacing asterix on pos: %1d...\n",aspos);
@@ -1353,7 +1431,7 @@ string get_new_name(string filename,int number){
 	if (debug) printf (" newname before cleaning: %s\n",newname.c_str());	
 	//cleaning and shrotening newname if needed, also appending suffix
 	for (i=0;i<10000;i+=1){
-		aspos=newname.find_first_of("*#");
+		aspos=newname.find_first_of("%#");
 		if (aspos<0) break;
 		newname.erase(aspos,1);}
 	
@@ -1378,9 +1456,23 @@ int main(int argc, char** argv){
 	float brightness_gamma,contrast_gamma,saturation_gamma,sharpness_boost,tmp;
 	//int filestatus=-1;
 	
+
+	
 	cimg::exception_mode(0);  //0 quiet, 1- console only errors
 	
 	arg_processing(argc, argv);
+
+	//testing span of min/maxbr
+	//printf ("%.3f %.3f \n",maindata.minbr,maindata.maxbr);
+	if (maindata.minbr+0.05>maindata.maxbr) {
+		printf (" ! The gap between minimal and maximal brightness is too low, changing max brightness!\n");
+		maindata.maxbr=maindata.minbr+0.05;
+		}
+	if (maindata.mincontr+0.05>maindata.maxcontr) {
+		printf (" ! The gap between minimal and maximal brightness is too low, changing max contrast!\n");
+		maindata.maxcontr=maindata.mincontr+0.05;
+		}
+
 	
 	// EXIT IF NO IMAGES
 	if (img_count <1) {
@@ -1416,8 +1508,6 @@ int main(int argc, char** argv){
 		//printf ("  Orientation: %1d\n",maindata.rotation);
 
 		//opening (trying to open) the file
-		
-		
 		try {
 			CImg<unsigned char> srcimg(char_filename) ;
 			//del srcimg;
@@ -1444,8 +1534,9 @@ int main(int argc, char** argv){
 		//processing/changing brightness
 		take_samples(BRIGHT);
 		
-		if (maindata.nobr==FALSE) double_calibrate(&sample_br[0] , &brightness_gamma, &contrast_gamma,
-			maindata.minbr,maindata.maxbr,maindata.mincontr,maindata.maxcontr);
+		if (maindata.nobr==FALSE) brightness_calibrate(&sample_br[0] , &brightness_gamma, &contrast_gamma);
+		//,
+		//	maindata.minbr,maindata.maxbr,maindata.mincontr,maindata.maxcontr);
 		else{
 			brightness_gamma=1.0;
 			contrast_gamma=1.0;}
@@ -1454,19 +1545,48 @@ int main(int argc, char** argv){
 		put_in_stat(contrast_gamma,&contr_stat[0]);
 		
 		
-		//calculating & applying sharpening
+		//calculating & applying sharpening - relative radius 0.1
 		change_brightness(&br[0],brightness_gamma,contrast_gamma);  //modifying br
 		if (maindata.nosharp==FALSE) {
 			blur(&br[0],&mask1[0],0.1,maindata.source_x_size,maindata.source_y_size);  // blurring br to mask1
-			take_samples(SHARP);										//taking samples
+			take_samples(SHARP,0.6);										//taking samples
 			get_ordered(&sample_sharp1[0],POINTSPERLINE*POINTSPERLINE);								//ordering them
-			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp1,maindata.maxsharp1,1.0,"Sharpness",2,&tmp);
-			put_in_stat(1.0/sharpness_boost,&sharp_stat[0]);		 	//calculating sharpness boost
+			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp1,maindata.maxsharp1,1.0,"Sharpness1",2,&tmp,0.5);
+			put_in_stat(1.0/sharpness_boost,&sharp_stat1[0]);		 	//calculating sharpness boost
 			apply_sharp_boost(sharpness_boost);							//changing br
 			}
 		else
-			put_in_stat(1.0,&sharp_stat[0]);	
+			put_in_stat(1.0,&sharp_stat1[0]);	
+		//saving mask if needed
+		if (maindata.savemask==TRUE) {
+			CImg<unsigned char> sharp_mask(maindata.source_x_size,maindata.source_y_size,1,3);
+			insert_final(&sharp_mask,&mask1[0],MASK);
+			string newmaskfilename=("mask1_"+newfilename);
+			const char *char_newmaskfilename = newmaskfilename.c_str();
+			sharp_mask.save_png(char_newmaskfilename);}
 		
+		//calculating & applying sharpening - relative radius 0.01
+		//change_brightness(&br[0],brightness_gamma,contrast_gamma);  //modifying br
+		if (maindata.nosharp==FALSE) {
+			blur(&br[0],&mask1[0],0.01,maindata.source_x_size,maindata.source_y_size);  // blurring br to mask1
+			take_samples(SHARP,0.4);										//taking samples
+			get_ordered(&sample_sharp1[0],POINTSPERLINE*POINTSPERLINE);								//ordering them
+			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp2,maindata.maxsharp2,1.0,"Sharpness2",2,&tmp,0.8);
+			put_in_stat(1.0/sharpness_boost,&sharp_stat2[0]);		 	//calculating sharpness boost
+			apply_sharp_boost(sharpness_boost);							//changing br
+			}
+		else
+			put_in_stat(1.0,&sharp_stat2[0]);
+		//saving mask if needed
+		if (maindata.savemask==TRUE) {
+			CImg<unsigned char> sharp_mask(maindata.source_x_size,maindata.source_y_size,1,3);
+			insert_final(&sharp_mask,&mask1[0],MASK);
+			string newmaskfilename=("mask2_"+newfilename);
+			const char *char_newmaskfilename = newmaskfilename.c_str();
+			sharp_mask.save_png(char_newmaskfilename);}
+
+
+
 
 		
 		//calculating sat changes
@@ -1491,13 +1611,7 @@ int main(int argc, char** argv){
 		CImg<unsigned char> final_img(maindata.source_x_size,maindata.source_y_size,1,3);
 		insert_final(&final_img,&br[0],IMAGE);
 		
-		//saving mask if needed
-		if (maindata.savemask==TRUE) {
-			CImg<unsigned char> sharp_mask(maindata.source_x_size,maindata.source_y_size,1,3);
-			insert_final(&sharp_mask,&mask1[0],MASK);
-			string newmaskfilename=("mask_"+newfilename);
-			const char *char_newmaskfilename = newmaskfilename.c_str();
-			sharp_mask.save_jpeg(char_newmaskfilename,89);}
+
 			
 		//inserting text
 		insert_text(&final_img,maindata.xpos,maindata.ypos,maindata.textsize);
@@ -1529,14 +1643,15 @@ int main(int argc, char** argv){
 		}
 			
 	printf( "==SUMMARY (per change - count of images):\n");
-	printf ("   %-20s |%10s |%10s |%11s|\n","Type of modif.","Decreased","Increased", "Not changed");
-	printf ("   %-20s |%10d |%10d |%11d|\n","Brightness",br_stat[0],br_stat[1],br_stat[2]);
-	printf ("   %-20s |%10d |%10d |%11d|\n","Contrast",contr_stat[0],contr_stat[1],contr_stat[2]);
-	printf ("   %-20s |%10d |%10d |%11d|\n","Sharpness",sharp_stat[0],sharp_stat[1],sharp_stat[2]);	
-	printf ("   %-20s |%10d |%10d |%11d|\n","Saturation",sat_stat[0],sat_stat[1],sat_stat[2]);		
+	printf ("   %-21s |%10s |%10s |%11s|\n","Type of modif.","Decreased","Increased", "Not changed");
+	printf ("   %-21s |%10d |%10d |%11d|\n","Brightness",br_stat[0],br_stat[1],br_stat[2]);
+	printf ("   %-21s |%10d |%10d |%11d|\n","Contrast",contr_stat[0],contr_stat[1],contr_stat[2]);
+	printf ("   %-21s |%10d |%10d |%11d|\n","Sharpness(0.1)",sharp_stat1[0],sharp_stat1[1],sharp_stat1[2]);	
+	printf ("   %-21s |%10d |%10d |%11d|\n","Sharpness(0.01)",sharp_stat2[0],sharp_stat2[1],sharp_stat2[2]);	
+	printf ("   %-21s |%10d |%10d |%11d|\n","Saturation",sat_stat[0],sat_stat[1],sat_stat[2]);		
 
-	printf ("  innter limits of r: %6.3f - %6.3f, middle value: %6.3f\n",maxofminr,minofmaxr,rmiddle/img_count);
-	printf ("  innter limits of g: %6.3f - %6.3f, middle value: %6.3f\n",maxofming,minofmaxg,gmiddle/img_count);
-	printf ("  innter limits of b: %6.3f - %6.3f, middle value: %6.3f\n",maxofminb,minofmaxb,bmiddle/img_count);
+	//printf ("  innter limits of r: %6.3f - %6.3f, middle value: %6.3f\n",maxofminr,minofmaxr,rmiddle/img_count);
+	//printf ("  innter limits of g: %6.3f - %6.3f, middle value: %6.3f\n",maxofming,minofmaxg,gmiddle/img_count);
+	//printf ("  innter limits of b: %6.3f - %6.3f, middle value: %6.3f\n",maxofminb,minofmaxb,bmiddle/img_count);
 	printf("   RGB aligned images: %3d\n",rgbalign_stat);
 	}
