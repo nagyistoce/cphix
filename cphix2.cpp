@@ -24,6 +24,7 @@ using namespace cimg_library;
 #include<stdio.h> 
 #include<stdlib.h>  
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <math.h>
@@ -118,8 +119,37 @@ typedef struct
 	int source_size;
 	char *title;
 	char *pattern;
+	bool savedata;
 } MyMainVals;
-static MyMainVals  maindata={0.45,0.73,0.30,0.5,FALSE,0.20,0.40,0.32,1.0,0.32,1.0,FALSE,FALSE,FALSE,FALSE,0,JPG,TRUE,0.95,0.92,1,FALSE,1,FALSE,FALSE};
+static MyMainVals  maindata; //={,0,JPG,TRUE,0.95,0.92,1,FALSE,1,FALSE,FALSE};
+
+void set_initial(){
+maindata.minbr=0.45  ;
+maindata.maxbr=0.73  ;
+maindata.mincontr=0.3  ;
+maindata.maxcontr=0.5  ;
+maindata.halfmode=FALSE  ;
+maindata.minsat=0.2  ;
+maindata.maxsat=0.4  ;
+maindata.minsharp1=0.35  ;
+maindata.maxsharp1=1  ;
+maindata.minsharp2=0.32  ;
+maindata.maxsharp2=1  ;
+maindata.nobr=FALSE  ;
+maindata.nosat=FALSE  ;
+maindata.savemask=FALSE  ;
+maindata.nosharp=FALSE  ;
+maindata.mpx_resize=0  ;
+maindata.output=JPG  ;
+maindata.rgbalign=TRUE  ;
+maindata.xpos=0.95  ;
+maindata.ypos=0.92  ;
+maindata.topacity=1  ;
+maindata.bw=FALSE  ;
+maindata.textsize=1;
+maindata.skip=FALSE  ;
+maindata.patterndefined=FALSE  ;
+maindata.savedata=FALSE;}
 
 
 void arg_processing (int argc,char** argv){
@@ -161,6 +191,10 @@ void arg_processing (int argc,char** argv){
 		if (strcmp (argv[n],"--norgbalign") == 0 ) { 
 			cout << " * No RGB align\n";
 			maindata.rgbalign=FALSE;
+			shadow_argv[n]=true; }
+		if (strcmp (argv[n],"--savedata") == 0 ) { 
+			cout << " * Saving data\n";
+			maindata.savedata=TRUE;
 			shadow_argv[n]=true; }
 		if (strcmp (argv[n],"--skip") == 0 ) { 
 			cout << " * Skipping if final image exists \n";
@@ -481,7 +515,7 @@ void blur(float *input, float *output,float relradius,int x_dim,int y_dim){
 	
 	steps[0]=1;cummulative=1;
 	for (i=1;i<10;i+=1) {
-		expected=steps[i-1]*2;
+		expected=steps[i-1]*1.8+0.3;
 		if (expected> (radius-cummulative)) expected=radius-cummulative;
 		steps[i]=expected;
 		cummulative+=expected;
@@ -554,18 +588,18 @@ void apply_gamma(float *array, float gamma){
 	}
 	}
 
-float linear_calibrate(float *array,float minlimit,float maxlimit,float pre_gamma,const char *title,float tresh, float *newvalue,float wtresh=0){
+float linear_calibrate(float *array,float minlimit,float maxlimit,float pre_gamma,const char *title,float tresh, float *newvalue,float valuetresh=0){
 	//int i,good,outofrange;
 	float avg,boost;
 	float oldvalue;
 
 	
 	//testing if values are big enough for meaningfull processing
-	//printf ("Effect of wtresh: %.3f vs. %.3f\n",get_waverage(&array[0],pre_gamma,wtresh),get_waverage(&array[0],pre_gamma)	);
-	avg=get_waverage(&array[0],pre_gamma,wtresh);
+	//printf ("Effect of valuetresh: %.3f vs. %.3f\n",get_waverage(&array[0],pre_gamma,valuetresh),get_waverage(&array[0],pre_gamma)	);
+	avg=get_waverage(&array[0],pre_gamma,valuetresh);
 	oldvalue=avg;
 	if (avg<0.01) {
-		printf ("  Image with extremely low values (%.3f), using boost=1\n",avg);
+		printf ("  Image with extremely low values (%.3f) for %s, using boost=1\n",avg,title);
 		return 1.0;
 	}
 
@@ -714,20 +748,23 @@ void get_ordered(float *array,int length){
 		printf ( "   Weightordered average: %.3f ( + %.2f%%)\n", (float)sum2/wcount , (float)(sum2/(float)wcount) / (sum1/length * 100.0 - 100.0));}	
 	}
 
-float get_waverage(float *array,float gamma, float startpos){
-	int i,wcount,startpoint;
+float get_waverage(float *array,float gamma, float croptresh){
+	//values under croptresh will be ommited from calculation
+	int i,wcount;
+	int effpos;
 	
 	float sum;
-	if (startpos<0 || startpos>1){
-		printf(" !! Starpos error\n");
-		exit(6);}
-	startpoint=(int)((float)startpos*POINTSPERLINE*POINTSPERLINE);
-	sum=0;wcount=0;
+	sum=0;wcount=0;effpos=0;
 
-	for (i=startpoint;i<POINTSPERLINE*POINTSPERLINE;i+=1){
-		sum+= my_pow(array[i],gamma) * (i-startpoint);
-		wcount+=(i-startpoint);
+	for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
+		if (my_pow(array[i],gamma)<croptresh) continue;
+		effpos+=1;
+		sum+= my_pow(array[i],gamma) * effpos;
+		wcount+=effpos;
 		}
+	if (wcount==0) {
+		printf ("   (!! Not enough values above the treshold...)\n");
+		return 0;}
 	return (float)sum/wcount;
 	}
 
@@ -747,15 +784,14 @@ float my_pow(float base,float exp){
 	return pow(base,exp)*weight + base*(1-weight);
 }
 
-float saturation_calibrate(float *array,float minlimit,float maxlimit,const char *title, float *oldvalue,float *newvalue){
+float saturation_calibrate(float *array,float minlimit,float maxlimit,const char *title, float *oldvalue,float *newvalue,float valuetresh){
 	float avg,gamma,newr,newg,newb,new_sat;
 	int j,basepos,basepos_sample,x,y,xpoint,ypoint,halfstepx,halfstepy;
 	const bool debug=FALSE;
-	const float startpoint=0.3;
 	//testing if there are enough samples for calibration - rework!
 	
 	get_ordered(&array[0],POINTSPERLINE*POINTSPERLINE);
-	avg=get_waverage(&array[0],1,startpoint);
+	avg=get_waverage(&array[0],1,valuetresh);
 	*oldvalue=avg;
 	if (avg<0.01) {
 		printf ("  Image with extremely low saturation (%.3f), not saturating...\n",avg);
@@ -779,7 +815,7 @@ float saturation_calibrate(float *array,float minlimit,float maxlimit,const char
 			array[basepos_sample]=new_sat;}}
 	
 		get_ordered(&array[0],POINTSPERLINE*POINTSPERLINE);
-		avg=get_waverage(&array[0],gamma,startpoint);
+		avg=get_waverage(&array[0],gamma,valuetresh);
 		//if (j==0) *oldvalue=avg;
 		if (avg>= minlimit && avg<=maxlimit) break;
 		
@@ -1389,6 +1425,26 @@ int test_file(const char* file){
 	return 0;
 }
 
+void savedata(float *samples,string newfilename,const char *prefix){
+	string datafilename;
+	int i;
+	datafilename=prefix;
+	datafilename.append("_");
+	datafilename=datafilename+newfilename;
+	datafilename.append(".dat");
+	
+	//+"_"+newfilename+".dat";
+	
+	FILE* outputfile=fopen(datafilename.c_str(), "w");;
+	if (outputfile != NULL) {
+		//myfile.open (datafilename.c_str());
+		for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1) fprintf(outputfile,"%.3f\n", samples[i]);
+		fclose(outputfile);
+		printf ("   Samples data saved to %s\n",datafilename.c_str());}
+	else printf (" Failed to write to a file\n");
+	
+	}
+
 string get_new_name(string filename,int number){
 	//gets actual name, strips path and replaces * and # if present
 	
@@ -1456,7 +1512,7 @@ int main(int argc, char** argv){
 	float brightness_gamma,contrast_gamma,saturation_gamma,sharpness_boost,tmp;
 	//int filestatus=-1;
 	
-
+	set_initial();
 	
 	cimg::exception_mode(0);  //0 quiet, 1- console only errors
 	
@@ -1549,11 +1605,12 @@ int main(int argc, char** argv){
 		change_brightness(&br[0],brightness_gamma,contrast_gamma);  //modifying br
 		if (maindata.nosharp==FALSE) {
 			blur(&br[0],&mask1[0],0.1,maindata.source_x_size,maindata.source_y_size);  // blurring br to mask1
-			take_samples(SHARP,0.6);										//taking samples
+			take_samples(SHARP);										//taking samples
 			get_ordered(&sample_sharp1[0],POINTSPERLINE*POINTSPERLINE);								//ordering them
-			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp1,maindata.maxsharp1,1.0,"Sharpness1",2,&tmp,0.5);
+			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp1,maindata.maxsharp1,1.0,"Sharpness1",2,&tmp,0.1);
 			put_in_stat(1.0/sharpness_boost,&sharp_stat1[0]);		 	//calculating sharpness boost
 			apply_sharp_boost(sharpness_boost);							//changing br
+			if (maindata.savedata) savedata(&sample_sharp1[0],newfilename,"Sharp1");
 			}
 		else
 			put_in_stat(1.0,&sharp_stat1[0]);	
@@ -1569,11 +1626,12 @@ int main(int argc, char** argv){
 		//change_brightness(&br[0],brightness_gamma,contrast_gamma);  //modifying br
 		if (maindata.nosharp==FALSE) {
 			blur(&br[0],&mask1[0],0.01,maindata.source_x_size,maindata.source_y_size);  // blurring br to mask1
-			take_samples(SHARP,0.4);										//taking samples
+			take_samples(SHARP);										//taking samples
 			get_ordered(&sample_sharp1[0],POINTSPERLINE*POINTSPERLINE);								//ordering them
-			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp2,maindata.maxsharp2,1.0,"Sharpness2",2,&tmp,0.8);
+			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp2,maindata.maxsharp2,1.0,"Sharpness2",2,&tmp,0.08);
 			put_in_stat(1.0/sharpness_boost,&sharp_stat2[0]);		 	//calculating sharpness boost
 			apply_sharp_boost(sharpness_boost);							//changing br
+			if (maindata.savedata) savedata(&sample_sharp1[0],newfilename,"Sharp2");
 			}
 		else
 			put_in_stat(1.0,&sharp_stat2[0]);
@@ -1591,14 +1649,15 @@ int main(int argc, char** argv){
 		
 		//calculating sat changes
 		if (maindata.bw==TRUE) saturation_gamma=1.0;
-		else if (maindata.nosat==false) {
+		else if (maindata.nosat==FALSE) {
 			populate_sat();						//populating sat array
 			take_samples(SATUR);
 			float oldvalue=0;float newvalue=0;		
-			saturation_gamma=saturation_calibrate(&sample_sat[0],maindata.minsat,maindata.maxsat,"Saturation",&oldvalue,&newvalue);
+			saturation_gamma=saturation_calibrate(&sample_sat[0],maindata.minsat,maindata.maxsat,"Saturation",&oldvalue,&newvalue,0.025);
 			//saturation_boost=1.0;
 			//saturation_boost=linear_calibrate(&sample_sat[0],maindata.minsat,maindata.maxsat,saturation_gamma,"Saturation",0.5,&newvalue);
 			put_in_stat(oldvalue/newvalue,&sat_stat[0]);
+			if (maindata.savedata) savedata(&sample_sat[0],newfilename,"Satur");
 		}
 		else{
 			saturation_gamma=1.0;
