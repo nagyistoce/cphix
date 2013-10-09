@@ -54,6 +54,7 @@ using namespace cimg_library;
 static 	vector<string> images; 
 static int img_count=0;
 static float *r,*g,*b, *br, *sat, *mask1, *tmp1;   //,*r_blur,*g_blur,*b_blur; sat taking from raw values now
+static float *r_orig,*g_orig,*b_orig, *br_orig; // to save orignal values
 static float sample_br[POINTSPERLINE*POINTSPERLINE];
 static float sample_sat[POINTSPERLINE*POINTSPERLINE];
 static float sample_sharp1[POINTSPERLINE*POINTSPERLINE];
@@ -66,7 +67,7 @@ static int sat_stat[3]={0,0,0};
 static int rgbalign_stat=0;
 void help ();
 static string filename; 
-const char *version="1.6.4";
+const char *version="1.7.0";
 //const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
 //const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3}; // v 1.6
 const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
@@ -120,6 +121,9 @@ typedef struct
 	char *title;
 	char *pattern;
 	bool savedata;
+	float rdiff;   // fro rgb alignment
+	float gdiff;
+	float bdiff;
 } MyMainVals;
 static MyMainVals  maindata; //={,0,JPG,TRUE,0.95,0.92,1,FALSE,1,FALSE,FALSE};
 
@@ -133,7 +137,7 @@ maindata.minsat=0.2  ;
 maindata.maxsat=0.4  ;
 maindata.minsharp1=0.35  ;
 maindata.maxsharp1=1  ;
-maindata.minsharp2=0.32  ;
+maindata.minsharp2=0.30  ;
 maindata.maxsharp2=1  ;
 maindata.nobr=FALSE  ;
 maindata.nosat=FALSE  ;
@@ -152,7 +156,7 @@ maindata.patterndefined=FALSE  ;
 maindata.savedata=FALSE;}
 
 
-void arg_processing (int argc,char** argv){
+void arg_processing ( int argc, char** argv){
 	//creating OVERLAY ARRAY to mark processed CLI arguments
 	bool *shadow_argv;
 	int filetestresult;
@@ -568,11 +572,10 @@ void change_brightness(float *array, float br_gamma, float contr_gamma){
 	int x,y,basepos;
 	
 	for (x=0;x<maindata.source_x_size;x+=1) {
-		if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;
 		for (y=0;y<maindata.source_y_size;y+=1) {	
-		basepos=get_basepos(x,y,maindata.source_x_size);		
-		get_brightness(array[basepos],br_gamma,contr_gamma,&new_br,&new_contr);
-		array[basepos]=new_br;
+			basepos=get_basepos(x,y,maindata.source_x_size);		
+			get_brightness(array[basepos],br_gamma,contr_gamma,&new_br,&new_contr);
+			array[basepos]=new_br;
 		}}
 	
 	}
@@ -581,14 +584,13 @@ void apply_gamma(float *array, float gamma){
 	int x,y,basepos;
 	
 	for (x=0;x<maindata.source_x_size;x+=1) {
-		if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;
 		for (y=0;y<maindata.source_y_size;y+=1) {
-		basepos=get_basepos(x,y,maindata.source_x_size);
-		array[basepos]=my_pow(array[basepos],gamma);}
+			basepos=get_basepos(x,y,maindata.source_x_size);
+			array[basepos]=my_pow(array[basepos],gamma);}
 	}
 	}
 
-float linear_calibrate(float *array,float minlimit,float maxlimit,float pre_gamma,const char *title,float tresh, float *newvalue,float valuetresh=0){
+float linear_calibrate(float *array,const float minlimit,const float maxlimit,const float pre_gamma,const char *title,float tresh, float *newvalue,const float valuetresh=0){
 	//int i,good,outofrange;
 	float avg,boost;
 	float oldvalue;
@@ -615,7 +617,7 @@ float linear_calibrate(float *array,float minlimit,float maxlimit,float pre_gamm
 	}
 	
 	
-void get_brightness(float value, float br_gamma, float contr_gamma, float *new_br, float *new_contr){
+void get_brightness(const float value,const float br_gamma,const float contr_gamma, float *new_br, float *new_contr){
 	float tmp;
 	float old_contrast=0;
 	float new_contrast;
@@ -641,7 +643,7 @@ void get_brightness(float value, float br_gamma, float contr_gamma, float *new_b
 	}
 
 
-void brightness_calibrate(float *array, float *br_gamma, float *contr_gamma){  //,float br_min,float br_max, float contr_min, float contr_max){
+void brightness_calibrate(const float *array, float *br_gamma, float *contr_gamma){  //,float br_min,float br_max, float contr_min, float contr_max){
 	
 	*br_gamma=1.0;
 	*contr_gamma=1.0;
@@ -778,7 +780,7 @@ float get_average(float *array,int count){
 }
 		
 
-float my_pow(float base,float exp){
+float my_pow(const float base,const float exp){
 	float weight;
 	weight=pow(base,0.15);
 	return pow(base,exp)*weight + base*(1-weight);
@@ -882,7 +884,6 @@ void apply_sharp_boost(float sharp_boost){
 	int x,y,basepos;
 	float weight, local_boost,diff;
 	for (x=0;x<maindata.source_x_size;x+=1) {
-		if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;	
 		for (y=0;y<maindata.source_y_size;y+=1) {
 			basepos=get_basepos(x,y,maindata.source_x_size);
 			
@@ -928,7 +929,14 @@ void process(float saturation_gamma){
 	
 	if (maindata.bw==TRUE){
 		for (x=0;x<maindata.source_x_size;x+=1) {
-			if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;
+			if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) {
+				for (y=0;y<maindata.source_y_size;y+=1) {
+					basepos=get_basepos(x,y,maindata.source_x_size);
+					r[basepos]=r_orig[basepos];				
+					g[basepos]=g_orig[basepos];				
+					b[basepos]=b_orig[basepos];				
+					br[basepos]=br_orig[basepos];}				
+				 continue;}
 			for (y=0;y<maindata.source_y_size;y+=1) {
 				basepos=get_basepos(x,y,maindata.source_x_size);		
 				r[basepos]=0;
@@ -936,7 +944,15 @@ void process(float saturation_gamma){
 				b[basepos]=0;	}}}
 	else{
 		for (x=0;x<maindata.source_x_size;x+=1) {
-			if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;
+			if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE){
+				for (y=0;y<maindata.source_y_size;y+=1) {
+					// referting rgb alignment changes
+					basepos=get_basepos(x,y,maindata.source_x_size);
+					r[basepos]=r_orig[basepos];				
+					g[basepos]=g_orig[basepos];				
+					b[basepos]=b_orig[basepos];				
+					br[basepos]=br_orig[basepos];}	
+				continue;}
 			for (y=0;y<maindata.source_y_size;y+=1) {
 				basepos=get_basepos(x,y,maindata.source_x_size);
 				resaturate(basepos, saturation_gamma, &r[basepos],&g[basepos],&b[basepos],&applied_sat);
@@ -1058,10 +1074,11 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 }
 
 	
-void insert_final(CImg<unsigned char>* final_img, float *source,int output) {
+void insert_final(CImg<unsigned char>* final_img, const float *source,const int output) {
 	int x,y,basepos;
 	float Rnew,Bnew,Gnew;
-	char Rfinal,Gfinal,Bfinal;
+	unsigned char Rfinal,Gfinal,Bfinal;
+	const bool debug=FALSE;
 	
 	for (x=0;x<maindata.source_x_size;x+=1) {
 		//if (x<maindata.source_x_size/2 && maindata.halfmode==TRUE) continue;
@@ -1088,7 +1105,10 @@ void insert_final(CImg<unsigned char>* final_img, float *source,int output) {
 			//inserting into image
 			(*final_img)(x,y,0,0)=Rfinal;
 			(*final_img)(x,y,0,1)=Gfinal;
-			(*final_img)(x,y,0,2)=Bfinal;}}
+			(*final_img)(x,y,0,2)=Bfinal;
+			if(debug && basepos<10) printf (" final values: %3d: %.3f %.3f %.3f\n", basepos, Rnew,Gnew,Bnew);
+			if(debug && basepos<10) printf (" final values: %3d: %u %u %u\n", basepos, Rfinal,Gfinal,Bfinal);
+			}}
 	}
 
 
@@ -1195,11 +1215,11 @@ void get_disalignment(){
 	const bool debug=FALSE;	
 	int bottom,top;
 	float rbottom,rtop,gbottom,gtop,bbottom,btop;
-	float rdiff,gdiff,bdiff;
+	
 	int i;
 	float oldrbottom,oldrtop,oldgbottom,oldgtop,oldbbottom,oldbtop;
 
-	rdiff=0;gdiff=0;bdiff=0;
+	maindata.rdiff=0;maindata.gdiff=0;maindata.bdiff=0;
 
 
 	
@@ -1251,65 +1271,66 @@ void get_disalignment(){
 	
 	for (i=0;i<5;i+=1){
 	
-		rbottom=oldrbottom+rdiff;
-		rtop   =oldrtop+rdiff;
-		gbottom=oldgbottom+gdiff;
-		gtop   =oldgtop+gdiff;
-		bbottom=oldbbottom+bdiff;
-		btop   =oldbtop+bdiff;
+		rbottom=oldrbottom+maindata.rdiff;
+		rtop   =oldrtop+maindata.rdiff;
+		gbottom=oldgbottom+maindata.gdiff;
+		gtop   =oldgtop+maindata.gdiff;
+		bbottom=oldbbottom+maindata.bdiff;
+		btop   =oldbtop+maindata.bdiff;
 
 		if (debug) printf ("   Alignment iteration: %1d, tresholds: %3d - %3d \n",i,bottom,top);
 		if (debug) printf ("    r tresholds: %6.3f - %6.3f \n",rbottom,rtop);
 		if (debug) printf ("    g tresholds: %6.3f - %6.3f \n",gbottom,gtop);
 		if (debug) printf ("    b tresholds: %6.3f - %6.3f \n",bbottom,btop);
 		if (rbottom>RTARGET){
-			realign(rbottom,1,0,0,&rdiff,&gdiff,&bdiff);
-			if (debug) printf ("      changing r by: %6.3f\n",rdiff);
+			realign(rbottom,1,0,0,&maindata.rdiff,&maindata.gdiff,&maindata.bdiff);
+			if (debug) printf ("      changing r by: %6.3f\n",maindata.rdiff);
 			continue;}
 		if (rtop<RTARGET){
-			realign(rtop,1,0,0,&rdiff,&gdiff,&bdiff);			
-			if (debug) printf ("      changing r by: %6.3f\n",rdiff);
+			realign(rtop,1,0,0,&maindata.rdiff,&maindata.gdiff,&maindata.bdiff);			
+			if (debug) printf ("      changing r by: %6.3f\n",maindata.rdiff);
 			continue;}
 		if (gbottom>GTARGET){
-			realign(gbottom,0,1,0,&rdiff,&gdiff,&bdiff);	
-			if (debug) printf ("      changing g by: %3f\n",gdiff);
+			realign(gbottom,0,1,0,&maindata.rdiff,&maindata.gdiff,&maindata.bdiff);	
+			if (debug) printf ("      changing g by: %3f\n",maindata.gdiff);
 			continue;}
 		if (gtop<GTARGET){
-			realign(gtop,0,1,0,&rdiff,&gdiff,&bdiff);
-			if (debug) printf ("      changing g by: %3f\n",gdiff);
+			realign(gtop,0,1,0,&maindata.rdiff,&maindata.gdiff,&maindata.bdiff);
+			if (debug) printf ("      changing g by: %3f\n",maindata.gdiff);
 			continue;}
 		if (bbottom>BTARGET){
-			realign(bbottom,0,0,1,&rdiff,&gdiff,&bdiff);
-			if (debug) printf ("      changing b by: %3f\n",bdiff);
+			realign(bbottom,0,0,1,&maindata.rdiff,&maindata.gdiff,&maindata.bdiff);
+			if (debug) printf ("      changing b by: %3f\n",maindata.bdiff);
 			continue;}
 		if (btop<BTARGET){
-			realign(btop,0,0,1,&rdiff,&gdiff,&bdiff);
-			if (debug) printf ("      changing b by: %3f\n",bdiff);
+			realign(btop,0,0,1,&maindata.rdiff,&maindata.gdiff,&maindata.bdiff);
+			if (debug) printf ("      changing b by: %3f\n",maindata.bdiff);
 			continue;}			
 		//no need for further iterations
 		break;
 	}
 	
-	if (rdiff==0 && gdiff==0 && bdiff==0) return;
+	if (maindata.rdiff==0 && maindata.gdiff==0 && maindata.bdiff==0) return;
 	
 	rgbalign_stat+=1;
 	for (i=0;i<maindata.source_x_size*maindata.source_y_size;i+=1) {
-		r[i]+=rdiff;
-		g[i]+=gdiff;
-		b[i]+=bdiff;}
+		r[i]+=maindata.rdiff;
+		g[i]+=maindata.gdiff;
+		b[i]+=maindata.bdiff;}
 		
-	printf("  Fixing RGB disalignment: %.3f %.3f %.3f\n",rdiff,gdiff,bdiff);
+	printf("  Fixing RGB disalignment: %.3f %.3f %.3f\n",maindata.rdiff,maindata.gdiff,maindata.bdiff);
 	if (debug) {
 		if (debug) printf ("    new r tresholds: %6.3f - %6.3f \n",rbottom,rtop);
 		if (debug) printf ("    new g tresholds: %6.3f - %6.3f \n",gbottom,gtop);
 		if (debug) printf ("    new b tresholds: %6.3f - %6.3f \n",bbottom,btop);}
 }
 
-void populate(CImg<unsigned char>* srcimgL){
+void populate(const CImg<unsigned char>* srcimgL){
 	int x,y,basepos,R,G,B;
 	int x1,y1;
 	//float sumbr,summask;
 	int tmp;
+	const bool debug=FALSE;
 
 	//first allocating memory for arrays
 	if (maindata.source_size>allocated){
@@ -1318,6 +1339,10 @@ void populate(CImg<unsigned char>* srcimgL){
 		float* g_tmp = new float[maindata.source_size];
 		float* b_tmp = new float[maindata.source_size];
 		float* br_tmp = new float[maindata.source_size];
+		float* r_orig_tmp = new float[maindata.source_size];
+		float* g_orig_tmp = new float[maindata.source_size];
+		float* b_orig_tmp = new float[maindata.source_size];
+		float* br_orig_tmp = new float[maindata.source_size];
 		float* sat_tmp = new float[maindata.source_size];
 		float* mask1_tmp = new float[maindata.source_size];
 		float* tmp1_tmp = new float[maindata.source_size];
@@ -1326,6 +1351,10 @@ void populate(CImg<unsigned char>* srcimgL){
 		g=g_tmp;
 		b=b_tmp;
 		br=br_tmp;
+		r_orig=r_orig_tmp;
+		g_orig=g_orig_tmp;
+		b_orig=b_orig_tmp;
+		br_orig=br_orig_tmp;
 		sat=sat_tmp;
 		mask1=mask1_tmp;
 		tmp1=tmp1_tmp;
@@ -1360,19 +1389,33 @@ void populate(CImg<unsigned char>* srcimgL){
 			G=(int)(*srcimgL)(x1,y1,1);
 			B=(int)(*srcimgL)(x1,y1,2);
 			
+			if (debug && basepos<10) printf("  Source values for %2d: %3d %3d %3d\n",basepos, R,G,B);
+			
+			
 			basepos=get_basepos(x,y,maindata.source_x_size);
-			r[basepos]=my_pow((float)R/255,1/2.2);
-			g[basepos]=my_pow((float)G/255,1/2.2);			
-			b[basepos]=my_pow((float)B/255,1/2.2);
+			r[basepos]=pow((float)R/255,1/2.2);
+			g[basepos]=pow((float)G/255,1/2.2);			
+			b[basepos]=pow((float)B/255,1/2.2);
+			if (debug && basepos<10) printf("  Source values for %2d: %.3f %.3f %.3f\n",basepos, r[basepos],g[basepos],b[basepos]);
 			br[basepos]=calculate_brightness(r[basepos],g[basepos],b[basepos]);
 			//(r[basepos]+g[basepos]+b[basepos])/3.0;
 			r[basepos]=r[basepos]-br[basepos];
 			g[basepos]=g[basepos]-br[basepos];
 			b[basepos]=b[basepos]-br[basepos];
 			//br[basepos]=0.15+br[basepos]*0.9; // delete this !
+			
 			}}
+			
+	//if half mode we must save some data into *_orig arrays
+	if (maindata.halfmode){
+		for (x=0;x<maindata.source_y_size*maindata.source_x_size;x+=1){
+			r_orig[x]=r[x];
+			g_orig[x]=g[x];
+			b_orig[x]=b[x];
+			br_orig[x]=br[x];}}
+			
 	}
-float calculate_brightness(float r,float g, float b){
+float calculate_brightness(const float r,const float g, const float b){
 	float brightness;
 	//brightness=( 4.0 * (3.0*r+6.0*g+b)/10.0 + max(r,max(g,b))  ) / 5.0;
 	brightness=r*RWEIGHT + g*GWEIGHT + b*BWEIGHT;
@@ -1425,7 +1468,7 @@ int test_file(const char* file){
 	return 0;
 }
 
-void savedata(float *samples,string newfilename,const char *prefix){
+void savedata(const float *samples,string newfilename,const char *prefix){
 	string datafilename;
 	int i;
 	datafilename=prefix;
@@ -1445,7 +1488,7 @@ void savedata(float *samples,string newfilename,const char *prefix){
 	
 	}
 
-string get_new_name(string filename,int number){
+string get_new_name(string filename,const int number){
 	//gets actual name, strips path and replaces * and # if present
 	
 	int filenamelen,dotpos,slashpos,patternlength,aspos,i,crosspos,newnamelen;
@@ -1506,7 +1549,7 @@ string get_new_name(string filename,int number){
 //  ##############################   M A I N   #######################################	
 
 
-int main(int argc, char** argv){
+int main( int argc,  char** argv){
 	//char filename[1000];
 	//int n;
 	float brightness_gamma,contrast_gamma,saturation_gamma,sharpness_boost,tmp;
@@ -1680,8 +1723,8 @@ int main(int argc, char** argv){
 		//ulozenie
 		if (maindata.mpx_resize>0){
 			int new_x,new_y;
-			new_x=maindata.source_x_size * my_pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
-			new_y=maindata.source_y_size * my_pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
+			new_x=maindata.source_x_size * pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
+			new_y=maindata.source_y_size * pow(1000000*maindata.mpx_resize/maindata.source_x_size/maindata.source_y_size,0.5);
 			printf ("  Rescaling to %2d x %2d (%.2f MPx)\n",new_x,new_y,new_x*new_y/1000000.0);
 			final_img.resize(new_x,new_y,-100,-100,5);
 			}
@@ -1690,14 +1733,9 @@ int main(int argc, char** argv){
 			else		final_img.save_jpeg(char_savename,89);
 			printf("  Saved as: %s\n",newfilename.c_str());}
 		catch(CImgException &e) { 
-			printf ("\n ! Failed to save the file with error:\n%s\nSkipping the file...\n",e.what());
+			printf ("\n ! Failed to save the file (%s) with error:\n%s\nSkipping the file...\n",newfilename.c_str(),e.what());
 			
 		}
-		
-		
-			
-		
-		//final_img.save_png(char_savename);	
 		
 		}
 			
