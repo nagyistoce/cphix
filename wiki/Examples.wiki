@@ -17,7 +17,7 @@ https://cphix.googlecode.com/files/final_img_2369.jpg
 https://cphix.googlecode.com/files/final_img_2378.jpg
 
 https://cphix.googlecode.com/files/final_img_5834.jpg
-
+http://cphix.googlecode.com/files/final_2204_Chicago2009%20227.jpg
 *Customization of labels*
 
 You can change size, position and transparency of label. The label is aligned by its left-bottom corner. Use -h for more info.
