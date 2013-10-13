@@ -28,6 +28,10 @@ https://cphix.googlecode.com/files/final_img_5778.jpg
 
 Here is example of overdone image (compare with image above). I used --minsharp and --minsat switches (default values are shown when running cphix)
 
+Another example, with arguments in the image. 
+
+http://cphix.googlecode.com/files/overdone_apples.jpg
+
 http://cphix.googlecode.com/files/overdone.jpg
 
 To learn more about Cphix visit [About] wiki page
