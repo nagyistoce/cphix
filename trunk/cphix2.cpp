@@ -943,22 +943,29 @@ void add_offset(float *bg_weight,const unsigned int x_size,const unsigned int y_
 
 
 	
-void apply_sharp_boost(float sharp_boost){
+void apply_sharp_boost(const float sharp_boost){
 	int x,y,basepos;
-	float weight, local_boost,diff;
+	float weight, local_boost,diff,br_old;
+	const bool debug=FALSE;
+	const float bottomtresh=0.08;
+	const float uppertresh=0.3;
+	
 	for (x=0;x<maindata.source_x_size;x+=1) {
 		for (y=0;y<maindata.source_y_size;y+=1) {
 			basepos=get_basepos(x,y,maindata.source_x_size);
 			
 			//sharpening
+			if (debug) br_old=br[basepos];
 			diff=(br[basepos]-mask1[basepos]);
-			if (br[basepos]<=0.05 && diff<0 ) weight=0;
-			else if (br[basepos]>=0.95 && diff>0) weight=0;
-			else if (br[basepos]<0.20 && diff<0) weight=(br[basepos]-0.05)/0.15;
-			else if (br[basepos]>0.80 && diff>0) weight=(1-br[basepos]-0.05)/0.15;
-			else weight=1;
+			if      (br[basepos]<=bottomtresh     && diff<0 )weight=0;
+			else if (br[basepos]>=(1-bottomtresh) && diff>0) weight=0;
+			else if (br[basepos]< uppertresh      && diff<0) weight=(  br[basepos]-bottomtresh)/(uppertresh-bottomtresh);
+			else if (br[basepos]> (1-uppertresh)  && diff>0) weight=(1-br[basepos]-bottomtresh)/(uppertresh-bottomtresh);
+			else                                             weight=1;
 			local_boost=(sharp_boost-1.0)*weight + 1.0;
 			br[basepos]=(br[basepos]-mask1[basepos])*local_boost+mask1[basepos];
+			if (debug && br[basepos]>0.90 && local_boost >1) printf("  old br: %.3f , new: %.3f,mask: %.3f, initial boost: %.3f, applied boost: %.3f\n",
+				br_old,br[basepos],mask1[basepos],sharp_boost,local_boost);
 			if (br[basepos]<0) br[basepos]=0;
 			if (br[basepos]>1) br[basepos]=1;
 			}}
