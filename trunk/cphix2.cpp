@@ -124,6 +124,8 @@ typedef struct
 	float rdiff;   // fro rgb alignment
 	float gdiff;
 	float bdiff;
+	bool savelabel;
+	float toffset; // ratio to core label size
 } MyMainVals;
 static MyMainVals  maindata; //={,0,JPG,TRUE,0.95,0.92,1,FALSE,1,FALSE,FALSE};
 
@@ -153,7 +155,9 @@ maindata.bw=FALSE  ;
 maindata.textsize=1;
 maindata.skip=FALSE  ;
 maindata.patterndefined=FALSE  ;
-maindata.savedata=FALSE;}
+maindata.savedata=FALSE;
+maindata.savelabel=FALSE;
+maindata.toffset=1.0;}
 
 
 void arg_processing ( int argc, char** argv){
@@ -200,6 +204,10 @@ void arg_processing ( int argc, char** argv){
 			cout << " * Saving data\n";
 			maindata.savedata=TRUE;
 			shadow_argv[n]=true; }
+		if (strcmp (argv[n],"--savelabel") == 0 ) { 
+			cout << " * Saving label\n";
+			maindata.savelabel=TRUE;
+			shadow_argv[n]=true; }
 		if (strcmp (argv[n],"--skip") == 0 ) { 
 			cout << " * Skipping if final image exists \n";
 			maindata.skip=TRUE;
@@ -229,7 +237,7 @@ void arg_processing ( int argc, char** argv){
 			else {
 				cout << " --newname needs a string. \n";
 				shadow_argv[n]=true; }}
-		if (strcmp (argv[n],"--textsize") == 0) {
+		if (strcmp (argv[n],"--textsize") == 0 || strcmp (argv[n],"--tsize") == 0) {
 			if (shadow_argv[n+1]==false && n+1<argc) {
 				maindata.textsize=atof(argv[n+1]);
 				if (maindata.textsize==0)
@@ -341,7 +349,16 @@ void arg_processing ( int argc, char** argv){
 				cout << " --topacity needs an parameter (float) \n";
 				shadow_argv[n]=true; }
 			}
-	
+		//text shadow
+		if (strcmp (argv[n],"--tshadow") == 0 || strcmp (argv[n],"--tshad") == 0) {	
+			if (shadow_argv[n+1]==false && n+1<argc) {
+				parse_float(argv[n+1],0.1,10,&maindata.toffset,*argv[n],"Text shadow (relative size)");
+				shadow_argv[n]=true;shadow_argv[n+1]=true; 
+				}
+			else {
+				cout << " --tshadow needs an parameter (float or integer) \n";
+				shadow_argv[n]=true; }}	
+					
 		// --minsharp1
 		if (strcmp (argv[n],"--minsharp1") == 0 ) {	
 			if (shadow_argv[n+1]==false && n+1<argc) {
@@ -426,7 +443,9 @@ void help (){
 	printf("%-20s  %s\n", "--txpos $FLOAT", "Text x (horiz.) position (0-1,default: 1).");	
 	printf("%-20s  %s\n", "--typos $FLOAT", "Text y (vert.) position (0-1,default: 1).");	
 	printf("%-20s  %s\n", " ", "(Coordinates starts on upper left corner. Relative");	
-	printf("%-20s  %s\n", " ", " positions refer to bottom right corner of text label).");			
+	printf("%-20s  %s\n", " ", " positions refer to bottom right corner of text label).");		
+	printf("%-20s  %s\n", "--tshadow $FLOAT", "Thickness of shadow (0.1-10,1=default)");	
+
 	
 	printf("  MODIFICATION OF TARGETS\n");
 	printf("%-20s  %s\n", "--minbr $DECIMAL", "(Brightness and contrast are coupled");
@@ -879,6 +898,50 @@ void resaturate(int basepos, float saturation_gamma, float *newr,float *newg,flo
 			sat[basepos],due_sat,due_sat/sat[basepos],possible_boost,boost);}
 		
 }
+
+
+void add_offset(float *bg_weight,const unsigned int x_size,const unsigned int y_size,const unsigned int offset){
+	float *tmp1;
+	float *tmp2;
+	int basepos,basepos_c;
+	float maxvalue;
+	unsigned int i,j,k,x,y;
+	const bool debug=FALSE;
+	int x_near[8]={0,1,1,1,0,-1,-1,-1};	
+	int y_near[8]={1,1,0,-1,-1,-1,0,1};		
+	
+	tmp1 = new float[x_size*y_size];
+	tmp2 = new float[x_size*y_size];
+	
+	if (debug) printf("   adding offset: %2d\n",offset);
+	
+	for (i=0;i<y_size*x_size;i+=1){
+		tmp1[i]=bg_weight[i];}
+	
+	for (k=0;k<offset;k+=1) {
+		for (x=0;x<x_size;x+=1) { for  (y=0;y<y_size;y+=1) {
+			basepos_c=get_basepos(x,y,x_size);
+			//if (debug and basepos_c%2000==0) printf("    Iter: %2d: value: %.3f\n",k,tmp1[basepos_c]);
+			maxvalue=tmp1[basepos_c];		
+			for (j=0;j<8;j+=1) {
+				if (x+x_near[j]<0 || x+x_near[j]>=x_size  || y+y_near[j]<0 || y+y_near[j]>=y_size) continue;
+				basepos=get_basepos(x+x_near[j],y+y_near[j],x_size);
+				if (tmp1[basepos]>maxvalue) maxvalue=tmp1[basepos];
+				if (maxvalue==1) break;}
+			tmp2[basepos_c]=maxvalue;
+			//if (debug and basepos_c%2000==0) printf("    Iter: %2d: value: %.3f\n",k,tmp2[basepos_c]);
+			}}
+		for (i=0;i<y_size*x_size;i+=1){	tmp1[i]=tmp2[i];}	}	
+
+	for (i=0;i<y_size*x_size;i+=1){bg_weight[i]=tmp1[i];}
+	
+	delete[] tmp1;
+	delete[] tmp2;
+	
+}
+
+
+
 	
 void apply_sharp_boost(float sharp_boost){
 	int x,y,basepos;
@@ -970,26 +1033,36 @@ void put_in_stat(float value,int *stat){
 void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float sizeratio){
 	int img_x_pos,img_y_pos,i;
 	int label_x_pos,label_y_pos;
-	int offset,size,neededx,neededy,label_x_size,label_y_size,blur_radius;
+	int size,neededx,neededy,label_x_size,label_y_size,blur_radius;
 	int label_basepos;
 	int oldr,oldg,oldb,tmpr,tmpg,tmpb;
-	int foregroundcol[3]={255,255,0};
-	int backgroundcol[3]={0,0,150};
+	int foregroundcol[3]={255,255,40};
+	int backgroundcol[3]={0,0,70};
 	int newr,newg,newb;
+	int full_offset;
 	unsigned char w1[] = { 255 };
+	const bool debug=FALSE;
+	
 	size=(maindata.source_x_size+maindata.source_y_size)/80;
-	blur_radius=size*sizeratio/10;
-	offset=size/10;
-	if (offset<1) offset=1;
+	blur_radius=size*sizeratio/7;
+	//full_offset=blur_radius+maindata.toffset+1;
+
+	//size/10;
+	//if (offset<1) offset=1;
 	
 	CImg<unsigned char> empty;
 	empty.draw_text(0,0,maindata.title,w1,NULL,1,size*sizeratio);
 	neededx=empty.width();
 	neededy=empty.height();
-	label_x_size=neededx+2*blur_radius+2;
-	label_y_size=neededy+2*blur_radius+2;
+	full_offset=blur_radius+int(maindata.toffset*(min(neededx,neededy)))+1;
+	label_x_size=neededx+2*full_offset;
+	label_y_size=neededy+2*full_offset;
+
+	if (debug) printf ("   Core values of label: %2dx%2d, adding offset: %.2d (%2d + %2d + 1)\n",
+		neededx,neededy,full_offset,blur_radius,int(maindata.toffset*(min(neededx,neededy))));
+	
 	//printf ("    Label size: %2d %2d, text size: %2d x %2d, blur radius: %2d\n",label_x_size,label_y_size,neededx,neededy,blur_radius);
-	//empty.save_jpeg("label.png");
+	if (maindata.savelabel) empty.save_png("label.png");
 	
 	float *bg_weight= new float[label_x_size*label_y_size];
 	float *bg_weight_blurred= new float[label_x_size*label_y_size];
@@ -1000,25 +1073,26 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 	//putting in weights for foreground&background and blurring what is to be blurred
 	for (label_x_pos=0;label_x_pos<label_x_size;label_x_pos+=1) { for (label_y_pos=0;label_y_pos<label_y_size;label_y_pos+=1) {
 		label_basepos=get_basepos(label_x_pos,label_y_pos,label_x_size);
-		if (label_x_pos<blur_radius+1 || label_y_pos<blur_radius+1 
-			|| label_x_pos >=blur_radius+1+neededx || label_y_pos >=blur_radius+1+neededy) {
+		if (label_x_pos<full_offset || label_y_pos<full_offset 
+			|| label_x_pos >=full_offset+neededx || label_y_pos >=full_offset+neededy) {
 			bg_weight[label_basepos]=0;
 			fg_weight[label_basepos]=0;}
 		else {
 			//empty_basepos=get_basepos(label_x-blur_radius-1,label_y-blur_radius-1,neededx);
-			bg_weight[label_basepos]=empty(label_x_pos-blur_radius-1,label_y_pos-blur_radius-1,0)/255.0;
-			fg_weight[label_basepos]=empty(label_x_pos-blur_radius-1,label_y_pos-blur_radius-1,0)/255.0;
+			bg_weight[label_basepos]=empty(label_x_pos-full_offset,label_y_pos-full_offset,0)/255.0;
+			fg_weight[label_basepos]=empty(label_x_pos-full_offset,label_y_pos-full_offset,0)/255.0;
 			//if (label_x_pos%10==1 && label_y_pos%10==1)
 				//printf ("  For label position %2d %2d entering value: %.3f\n",label_x_pos,label_y_pos,fg_weight[label_basepos]);
 			}
 		}}	
 	//blurring
+	add_offset(&bg_weight[0],(unsigned int) label_x_size,(unsigned int) label_y_size,(unsigned int) int(maindata.toffset*(min(neededx,neededy))));
 	blur(&bg_weight[0],&bg_weight_blurred[0],(float)blur_radius,label_x_size,label_y_size);
 	blur(&fg_weight[0],&fg_weight_blurred[0],1,label_x_size,label_y_size);
 	for (i=0;i<	label_x_size*label_y_size;i+=1){
-		fg_weight_blurred[i]=2*fg_weight_blurred[i];
+		fg_weight_blurred[i]=3*fg_weight_blurred[i];
 		if(fg_weight_blurred[i]>1.0) fg_weight_blurred[i]=1.0;
-		bg_weight_blurred[i]=6*bg_weight_blurred[i];
+		bg_weight_blurred[i]=1*bg_weight_blurred[i];
 		if(bg_weight_blurred[i]>1.0) bg_weight_blurred[i]=1.0;		
 		
 		}
@@ -1556,10 +1630,12 @@ int main( int argc,  char** argv){
 	//int filestatus=-1;
 	
 	set_initial();
-	
+		
 	cimg::exception_mode(0);  //0 quiet, 1- console only errors
 	
 	arg_processing(argc, argv);
+	maindata.toffset=0.1*maindata.toffset;
+	//printf (" New maindata.toffset=%.3f\n",maindata.toffset);
 
 	//testing span of min/maxbr
 	//printf ("%.3f %.3f \n",maindata.minbr,maindata.maxbr);
@@ -1580,7 +1656,10 @@ int main( int argc,  char** argv){
 
    	// LISTING IMAGES 
    	cout <<" * Image(s): ";
-	for (int i=0;i<img_count;i=i+1) {	cout <<images[i]<< " ";}
+	for (int i=0;i<img_count;i=i+1) {
+		cout <<images[i];
+		if(i<img_count-1)	cout <<", ";}
+		//else	cout <<", "; }
 	cout <<"\n"; 
 	cout << " * Images count: " << img_count << "\n";
 
