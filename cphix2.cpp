@@ -70,7 +70,7 @@ static int sat_stat[3]={0,0,0};
 static int rgbalign_stat=0;
 void help ();
 static string filename; 
-const char *version="1.7.0";
+const char *version="1.7.2";
 //const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
 //const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3}; // v 1.6
 const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
@@ -78,7 +78,7 @@ const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
 static float minofmaxr=1,minofmaxg=1,minofmaxb=1,maxofminr=-1,maxofming=-1,maxofminb=-1,rmiddle=0,gmiddle=0,bmiddle=0;
 //minofmaxr=1;minofmaxg=1;minofmaxb=1;maxofminr=-1;maxofming=-1;maxofminb=-1;
 
-void get_brightness(float value, float br_gamma, float contr_gamma, float *new_br, float *new_contr);
+void get_brightness(float value, float br_gamma, float contr_gamma, float *new_br, float *new_contr, float overallbr=0.5);
 void get_ordered(float *array,int length);
 float get_waverage(float *array,float gamma=1, float startpos=0);
 float get_average(float *array,int count);
@@ -761,22 +761,23 @@ float linear_calibrate(float *array,const float minlimit,const float maxlimit,co
 	}
 	
 	
-void get_brightness(const float value,const float br_gamma,const float contr_gamma, float *new_br, float *new_contr){
+void get_brightness(const float value,const float br_gamma,const float contr_gamma, float *new_br, float *new_contr,const float overallbr){
 	float tmp;
 	float old_contrast=0;
 	float new_contrast;
 	const bool debug=FALSE;
 	tmp=pow(value,br_gamma);
-	if (tmp>0.5) old_contrast=pow((tmp-0.5)/0.5,contr_gamma);
-	if (tmp<0.5) old_contrast=pow((0.5-tmp)/0.5,contr_gamma);
+	if (tmp>overallbr) old_contrast=pow((tmp-overallbr)/(1-overallbr),contr_gamma);
+	else if (tmp<overallbr) old_contrast=pow((overallbr-tmp)/overallbr,contr_gamma);
+	else old_contrast=0;
 	
 	//applying contrast gamma
 	new_contrast=pow(old_contrast,contr_gamma);
 	
 	//calculating new brightness
-	if (tmp>0.5) *new_br=0.5 + new_contrast/2.0;
-	else if (tmp<0.5) *new_br=0.5 - new_contrast/2.0;	
-	else *new_br=0.5;
+	if (tmp>overallbr) *new_br=overallbr + new_contrast*(1.0-overallbr);
+	else if (tmp<overallbr) *new_br=overallbr - new_contrast*overallbr;	
+	else *new_br=overallbr;
 	
 	if (debug) {
 		printf ("  old brightness: %.3f , old contrast: %.3f\n",value,old_contrast);
@@ -785,6 +786,32 @@ void get_brightness(const float value,const float br_gamma,const float contr_gam
 
 	*new_contr=new_contrast;
 	}
+
+
+//void get_brightness(const float value,const float br_gamma,const float contr_gamma, float *new_br, float *new_contr){
+	//float tmp;
+	//float old_contrast=0;
+	//float new_contrast;
+	//const bool debug=FALSE;
+	//tmp=pow(value,br_gamma);
+	//if (tmp>0.5) old_contrast=pow((tmp-0.5)/0.5,contr_gamma);
+	//if (tmp<0.5) old_contrast=pow((0.5-tmp)/0.5,contr_gamma);
+	
+	////applying contrast gamma
+	//new_contrast=pow(old_contrast,contr_gamma);
+	
+	////calculating new brightness
+	//if (tmp>0.5) *new_br=0.5 + new_contrast/2.0;
+	//else if (tmp<0.5) *new_br=0.5 - new_contrast/2.0;	
+	//else *new_br=0.5;
+	
+	//if (debug) {
+		//printf ("  old brightness: %.3f , old contrast: %.3f\n",value,old_contrast);
+		//printf ("   new brightness: %.3f, new contrast: %.3f\n",*new_br,new_contrast);
+		//printf ("   applied gammas: brightness: %.3f contrast %.3f\n",br_gamma,contr_gamma);}
+
+	//*new_contr=new_contrast;
+	//}
 
 
 void brightness_calibrate(const float *array, float *br_gamma, float *contr_gamma){  //,float br_min,float br_max, float contr_min, float contr_max){
@@ -806,12 +833,16 @@ void brightness_calibrate(const float *array, float *br_gamma, float *contr_gamm
 	//br_min=maindata.minbr;contr_min=maindata.mincontr;br_max=maindata.maxbr;contr_max=maindata.maxcontr;
 	
 	oldcontr=-1; //just to initialize it
-	//calculating current/old contrast and brightness
+	//calculating overall brightness
 	for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
 		get_brightness(array[i],1,1,&new_br,&new_contr);
 			tmpbr+=new_br;
-			tmpcontr+=new_contr;}
+			}
 	oldbr=tmpbr/POINTSPERLINE/POINTSPERLINE;
+	//calculating overall contrast
+	for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
+		get_brightness(array[i],1,1,&new_br,&new_contr,oldbr);
+			tmpcontr+=new_contr;}	
 	oldcontr=tmpcontr/POINTSPERLINE/POINTSPERLINE;	
 	
 	
@@ -840,15 +871,20 @@ void brightness_calibrate(const float *array, float *br_gamma, float *contr_gamm
 		//testing contrast
 		sum=0;
 		for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
-			get_brightness(array[i],l_br_gamma,l_contr_gamma,&new_br,&new_contr);
-			sum+=new_contr;}
+			get_brightness(array[i],l_br_gamma,l_contr_gamma,&new_br,&new_contr,br_avg);
+			sum+=new_contr;
+			if (debug && isnan(new_contr)){
+				printf ("  Received nan contrast: value: %.2f, br_gamma: %.2f, contrast gamma: %.2f\n",
+				array[i],l_br_gamma,l_contr_gamma);
+				exit(10);}
+			}
 		contr_avg=sum/POINTSPERLINE/POINTSPERLINE;
 		//if (j==0) oldcontr=contr_avg;
 		if (contr_avg> contr_min && contr_avg<contr_max) ;
 		else if (contr_avg>contr_max)l_contr_gamma*=1.015;
 		else l_contr_gamma*=0.985;	
 		
-		if (debug) printf(" Iter. results: br gamma: %.2f / value: %.3f; contrast gamma:%.2f / value: %.3f(targ:%.3f - %.3f)\n",
+		if (debug) printf(" Iter. results: br gamma: %.2f / value: %.3f; contrast gamma: %.2f / value: %.3f(targ:%.3f - %.3f)\n",
 					l_br_gamma,br_avg,l_contr_gamma,contr_avg,contr_min,contr_max);
 		}
 	
