@@ -52,7 +52,12 @@ As by now, "final_" prefix is appended to the filename. Original images are not 
 
 
 
-*INSTALLATION:*
+*INSTALLATION and DEPENDENCIES:*
+
+Cphix requires:
+CImg library
+libjpeg8
+libpng12
 
 LINUX:
 (The platfom this is developed on)

@@ -19,6 +19,9 @@
 using namespace std;
 #include <vector>
 
+//#define cimg_use_jpeg
+//#define cimg_use_png
+//#define cimg_use_tiff
 #include <CImg.h>
 using namespace cimg_library;
 #include<stdio.h> 
@@ -110,6 +113,7 @@ typedef struct
 	float topacity;
 	bool bw;
 	float textsize ;
+	bool insertingtext;
 	bool skip;
 	bool patterndefined;
 	int rotation;
@@ -132,7 +136,7 @@ static MyMainVals  maindata; //={,0,JPG,TRUE,0.95,0.92,1,FALSE,1,FALSE,FALSE};
 void set_initial(){
 maindata.minbr=0.45  ;
 maindata.maxbr=0.73  ;
-maindata.mincontr=0.3  ;
+maindata.mincontr=0.25  ;
 maindata.maxcontr=0.5  ;
 maindata.halfmode=FALSE  ;
 maindata.minsat=0.2  ;
@@ -157,7 +161,8 @@ maindata.skip=FALSE  ;
 maindata.patterndefined=FALSE  ;
 maindata.savedata=FALSE;
 maindata.savelabel=FALSE;
-maindata.toffset=1.0;}
+maindata.toffset=1.0;
+maindata.insertingtext=FALSE;}
 
 
 void arg_processing ( int argc, char** argv){
@@ -215,7 +220,7 @@ void arg_processing ( int argc, char** argv){
 		if (strcmp (argv[n],"--version") == 0 || strcmp (argv[n],"-v") == 0 ) { 
 			printf (" * Version: %s\n",version);
 			shadow_argv[n]=true; }
-		if (strcmp (argv[n],"--savemask") == 0 ) { 
+		if (strcmp (argv[n],"--savemask") == 0  || strcmp (argv[n],"--savemasks") == 0) { 
 			cout << " * Saving blurred masks \n";
 			maindata.savemask=TRUE;
 			shadow_argv[n]=true; }
@@ -223,6 +228,7 @@ void arg_processing ( int argc, char** argv){
 			if (shadow_argv[n+1]==false && n+1<argc) {
 				maindata.title=argv[n+1];
 				printf (" * Text to be inserted: %s \n",maindata.title);
+				maindata.insertingtext=TRUE;
 				shadow_argv[n]=true; shadow_argv[n+1]=true; }
 			else {
 				cout << " --title needs a string. \n";
@@ -519,7 +525,7 @@ void take_samples(int action,float uptresh=10){
 }
 
 
-void blur(float *input, float *output,float relradius,int x_dim,int y_dim){
+void blur(const float *input, float *output,const float relradius,const int x_dim,const int y_dim,int callingline){
 	int steps[10]={0,0,0,0,0,0,0,0,0,0};
 	int cummulative, expected;
 	float sum;
@@ -527,7 +533,7 @@ void blur(float *input, float *output,float relradius,int x_dim,int y_dim){
 	const bool debug=FALSE;
 	const bool verbose=FALSE;
 	
-	if (verbose==TRUE) printf( " Starting blur()\n");
+	if (verbose==TRUE) printf( " Starting blur(), calling from line: %4d\n",callingline);
 	
 	if(relradius>=1.0) radius=(int)relradius; // the value is to be takes as absolute in pixels
 	else {
@@ -586,6 +592,125 @@ void blur(float *input, float *output,float relradius,int x_dim,int y_dim){
 	
 }
 
+
+void blur_wrong(const float *input, float *output,const float relradius,const int x_dim,const int y_dim,int callingline){
+	int steps[10]={0,0,0,0,0,0,0,0,0,0};
+	int cummulative, expected;
+	//float sum;
+	int radius,i,j,x,y,basepos_local;
+	const bool debug=FALSE;
+	const bool verbose=FALSE;
+	int *counts;
+	int basepos_diff;
+	counts = new int[x_dim*y_dim];
+	
+	if (verbose) printf( " Starting blur(), calling from: %4d\n",callingline);
+	
+	if(relradius>=1.0) radius=(int)relradius; // the value is to be takes as absolute in pixels
+	else {
+		radius=((x_dim+y_dim) * relradius);
+		if (radius>500) radius=500;
+		if (radius<1) radius=1;}
+	if (verbose==TRUE) printf ( "   Calculated absolute radius for blur: %2d (received: %.2f)\n",radius,relradius);
+	
+	steps[0]=1;cummulative=1;
+	for (i=1;i<10;i+=1) {
+		expected=steps[i-1]*1.8+0.3;
+		if (expected> (radius-cummulative)) expected=radius-cummulative;
+		steps[i]=expected;
+		cummulative+=expected;
+		if (verbose==TRUE) printf( "   calculated radius for step: %1d: %3d\n",i,steps[i]);
+	}
+	
+	//blurring itself
+	//copying and populating counts
+	for (j=0;j<x_dim*y_dim;j+=1) {
+		output[j]=input[j];
+		counts[j]=0;}
+	
+	for (i=9;i>=0;i-=1){
+		if (verbose==TRUE) printf ("  blurring step: %2d: radius: %2d\n",i,steps[i]);
+		if (steps[i]==0) continue;
+		
+		//copying data from output to tmp1
+		for (j=0;j<x_dim*y_dim;j+=1){
+			tmp1[j]=output[j];
+			counts[j]=1;}
+		
+		
+		//passing values west->east
+		basepos_diff=get_basepos(steps[i],0,x_dim)-get_basepos(0,0,x_dim);
+		for (x=0;x<x_dim-steps[i];x+=1) { for (y=0;y<y_dim;y+=1) {
+			basepos_local=get_basepos(x,y,x_dim);
+			output[basepos_local+basepos_diff]+=tmp1[basepos_local];
+			counts[basepos_local+basepos_diff]+=1;}}
+		//passing values east->west
+		basepos_diff=get_basepos(0,0,x_dim)-get_basepos(steps[i],0,x_dim);
+		for (x=steps[i];x<x_dim;x+=1) { for (y=0;y<y_dim;y+=1) {
+			basepos_local=get_basepos(x,y,x_dim);
+			output[basepos_local+basepos_diff]+=tmp1[basepos_local];
+			counts[basepos_local+basepos_diff]+=1;}}
+		//passing values north->south
+		basepos_diff=get_basepos(0,steps[i],x_dim)-get_basepos(0,0,x_dim);
+		for (x=0;x<x_dim;x+=1) { for (y=0;y<y_dim-steps[i];y+=1) {
+			basepos_local=get_basepos(x,y,x_dim);
+			output[basepos_local+basepos_diff]+=tmp1[basepos_local];
+			counts[basepos_local+basepos_diff]+=1;}}
+		//passing values sout->north
+		basepos_diff=get_basepos(0,0,x_dim)-get_basepos(0,steps[i],x_dim);
+		for (x=0;x<x_dim;x+=1) { for (y=steps[i];y<y_dim;y+=1) {
+			basepos_local=get_basepos(x,y,x_dim);
+			output[basepos_local+basepos_diff]+=tmp1[basepos_local];
+			counts[basepos_local+basepos_diff]+=1;}}			
+		
+		//calculating new values in output
+		for (j=0;j<x_dim*y_dim;j+=1){
+			output[j]=output[j]/counts[j];
+			if (debug && isnan(output[j])){ printf (" nan found\n");
+											exit(1);}
+			}
+		if (debug) printf ("   new value for pixel 1   : %.3f (count: %1d)\n",output[0],counts[0]);
+		if (debug) printf ("   new value for last pixel: %.3f (count: %1d)\n",output[x_dim*y_dim-1],counts[x_dim*y_dim-1]);		
+	}// end of all iterations
+	if (verbose) printf( " deleting counts\n");	
+	delete[] counts;
+	if (verbose) printf( " Ending blur()\n");
+}		
+		
+		
+		
+		
+		////blurring the pixel
+		//for (x=0;x<x_dim;x+=1) { for (y=0;y<y_dim;y+=1) {
+
+			//basepos=get_basepos(x,y,x_dim);
+			//if (debug && x%1000==0 && y%1000==0) printf ("    pixel: %3d x %3d, iteration: %2d, step radius: %2d, original value: %.3f\n",
+			//x,y,i,steps[i],tmp1[basepos]);
+			//sum=tmp1[basepos];count=1;
+			//if (x-steps[i]>=0) {
+				//basepos_local=get_basepos(x-steps[i],y,x_dim);
+				//sum+=tmp1[basepos_local];
+				//count+=1;}
+			//if (x+steps[i]<x_dim) {
+				//basepos_local=get_basepos(x+steps[i],y,x_dim);
+				//sum+=tmp1[basepos_local];
+				//count+=1;}
+			//if (y-steps[i]>=0) {
+				//basepos_local=get_basepos(x,y-steps[i],x_dim);
+				//sum+=tmp1[basepos_local];
+				//count+=1;}
+			//if (y+steps[i]<y_dim) {
+				//basepos_local=get_basepos(x,y+steps[i],x_dim);
+				//sum+=tmp1[basepos_local];
+				////if (debug) printf(" adding pixel: %3d x %3d, value: %.3f\n",y+steps[i]
+				//count+=1;}
+			//output[basepos]=sum/count;
+			//if (debug&& x%1000==0 && y%1000==0) printf("    result: %3f / %1d = %.3f\n", sum,count, output[basepos]);
+			//}} //end of blur step
+
+	
+//}
+
 void change_brightness(float *array, float br_gamma, float contr_gamma){
 	float new_br,new_contr;
 	int x,y,basepos;
@@ -599,15 +724,15 @@ void change_brightness(float *array, float br_gamma, float contr_gamma){
 	
 	}
 
-void apply_gamma(float *array, float gamma){
-	int x,y,basepos;
+//void apply_gamma(float *array, float gamma){
+	//int x,y,basepos;
 	
-	for (x=0;x<maindata.source_x_size;x+=1) {
-		for (y=0;y<maindata.source_y_size;y+=1) {
-			basepos=get_basepos(x,y,maindata.source_x_size);
-			array[basepos]=my_pow(array[basepos],gamma);}
-	}
-	}
+	//for (x=0;x<maindata.source_x_size;x+=1) {
+		//for (y=0;y<maindata.source_y_size;y+=1) {
+			//basepos=get_basepos(x,y,maindata.source_x_size);
+			//array[basepos]=pow(array[basepos],gamma);}
+	//}
+	//}
 
 float linear_calibrate(float *array,const float minlimit,const float maxlimit,const float pre_gamma,const char *title,float tresh, float *newvalue,const float valuetresh=0){
 	//int i,good,outofrange;
@@ -641,12 +766,12 @@ void get_brightness(const float value,const float br_gamma,const float contr_gam
 	float old_contrast=0;
 	float new_contrast;
 	const bool debug=FALSE;
-	tmp=my_pow(value,br_gamma);
-	if (tmp>0.5) old_contrast=my_pow((tmp-0.5)/0.5,contr_gamma);
-	if (tmp<0.5) old_contrast=my_pow((0.5-tmp)/0.5,contr_gamma);
+	tmp=pow(value,br_gamma);
+	if (tmp>0.5) old_contrast=pow((tmp-0.5)/0.5,contr_gamma);
+	if (tmp<0.5) old_contrast=pow((0.5-tmp)/0.5,contr_gamma);
 	
 	//applying contrast gamma
-	new_contrast=my_pow(old_contrast,contr_gamma);
+	new_contrast=pow(old_contrast,contr_gamma);
 	
 	//calculating new brightness
 	if (tmp>0.5) *new_br=0.5 + new_contrast/2.0;
@@ -778,6 +903,26 @@ float get_waverage(float *array,float gamma, float croptresh){
 	sum=0;wcount=0;effpos=0;
 
 	for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
+		if (pow(array[i],gamma)<croptresh) continue;
+		effpos+=1;
+		sum+= pow(array[i],gamma) * effpos;
+		wcount+=effpos;
+		}
+	if (wcount==0) {
+		printf ("   (!! Not enough values above the treshold...)\n");
+		return 0;}
+	return (float)sum/wcount;
+	}
+
+float get_mp_waverage(float *array,float gamma, float croptresh){
+	//values under croptresh will be ommited from calculation
+	int i,wcount;
+	int effpos;
+	
+	float sum;
+	sum=0;wcount=0;effpos=0;
+
+	for (i=0;i<POINTSPERLINE*POINTSPERLINE;i+=1){
 		if (my_pow(array[i],gamma)<croptresh) continue;
 		effpos+=1;
 		sum+= my_pow(array[i],gamma) * effpos;
@@ -812,7 +957,7 @@ float saturation_calibrate(float *array,float minlimit,float maxlimit,const char
 	//testing if there are enough samples for calibration - rework!
 	
 	get_ordered(&array[0],POINTSPERLINE*POINTSPERLINE);
-	avg=get_waverage(&array[0],1,valuetresh);
+	avg=get_mp_waverage(&array[0],1,valuetresh);
 	*oldvalue=avg;
 	if (avg<0.01) {
 		printf ("  Image with extremely low saturation (%.3f), not saturating...\n",avg);
@@ -836,7 +981,7 @@ float saturation_calibrate(float *array,float minlimit,float maxlimit,const char
 			array[basepos_sample]=new_sat;}}
 	
 		get_ordered(&array[0],POINTSPERLINE*POINTSPERLINE);
-		avg=get_waverage(&array[0],gamma,valuetresh);
+		avg=get_mp_waverage(&array[0],gamma,valuetresh);
 		//if (j==0) *oldvalue=avg;
 		if (avg>= minlimit && avg<=maxlimit) break;
 		
@@ -1094,8 +1239,8 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 		}}	
 	//blurring
 	add_offset(&bg_weight[0],(unsigned int) label_x_size,(unsigned int) label_y_size,(unsigned int) int(maindata.toffset*(min(neededx,neededy))));
-	blur(&bg_weight[0],&bg_weight_blurred[0],(float)blur_radius,label_x_size,label_y_size);
-	blur(&fg_weight[0],&fg_weight_blurred[0],1,label_x_size,label_y_size);
+	blur(&bg_weight[0],&bg_weight_blurred[0],(float)blur_radius,label_x_size,label_y_size,__LINE__);
+	blur(&fg_weight[0],&fg_weight_blurred[0],1,label_x_size,label_y_size,__LINE__);
 	for (i=0;i<	label_x_size*label_y_size;i+=1){
 		fg_weight_blurred[i]=3*fg_weight_blurred[i];
 		if(fg_weight_blurred[i]>1.0) fg_weight_blurred[i]=1.0;
@@ -1180,14 +1325,14 @@ void insert_final(CImg<unsigned char>* final_img, const float *source,const int 
 			if (Rnew>1) {Rnew=1;}
 			if (Gnew>1) {Gnew=1;}
 			if (Bnew>1) {Bnew=1;}
-			Rfinal=my_pow(Rnew,2.2)*255;
-			Gfinal=my_pow(Gnew,2.2)*255;
-			Bfinal=my_pow(Bnew,2.2)*255;
+			Rfinal=round(pow(Rnew,2.2)*255.0);
+			Gfinal=round(pow(Gnew,2.2)*255.0);
+			Bfinal=round(pow(Bnew,2.2)*255.0);
 			//inserting into image
 			(*final_img)(x,y,0,0)=Rfinal;
 			(*final_img)(x,y,0,1)=Gfinal;
 			(*final_img)(x,y,0,2)=Bfinal;
-			if(debug && basepos<10) printf (" final values: %3d: %.3f %.3f %.3f\n", basepos, Rnew,Gnew,Bnew);
+			if(debug && basepos<10) printf (" final values: %3d: %.4f %.4f %.4f\n", basepos, Rnew,Gnew,Bnew);
 			if(debug && basepos<10) printf (" final values: %3d: %u %u %u\n", basepos, Rfinal,Gfinal,Bfinal);
 			}}
 	}
@@ -1216,7 +1361,7 @@ float RGBtoHue(float R,float G,float B){
 }
 	
 	
-float calculate_saturation(int basepos){
+float calculate_saturation(const int basepos){
 	const bool debug=FALSE;
 	float brightness,chrome,saturation,hue,weight,partial;
 	int i;
@@ -1226,7 +1371,7 @@ float calculate_saturation(int basepos){
 	
 	brightness=calculate_brightness(r[basepos]+br[basepos],g[basepos]+br[basepos],b[basepos]+br[basepos]);
 	if (brightness<0.005) brightness=0.005;
-	saturation=my_pow(brightness,0.1)*chrome;
+	saturation=pow(brightness,0.1)*chrome;
 	
 	
 	//weighting the saturation
@@ -1477,7 +1622,7 @@ void populate(const CImg<unsigned char>* srcimgL){
 			r[basepos]=pow((float)R/255,1/2.2);
 			g[basepos]=pow((float)G/255,1/2.2);			
 			b[basepos]=pow((float)B/255,1/2.2);
-			if (debug && basepos<10) printf("  Source values for %2d: %.3f %.3f %.3f\n",basepos, r[basepos],g[basepos],b[basepos]);
+			if (debug && basepos<10) printf("  Source values for %2d: %.4f %.4f %.4f\n",basepos, r[basepos],g[basepos],b[basepos]);
 			br[basepos]=calculate_brightness(r[basepos],g[basepos],b[basepos]);
 			//(r[basepos]+g[basepos]+b[basepos])/3.0;
 			r[basepos]=r[basepos]-br[basepos];
@@ -1671,7 +1816,9 @@ int main( int argc,  char** argv){
 	cout << " * Images count: " << img_count << "\n";
 
 	//ITERATING over images
+	CImg<unsigned char> srcimg;
 	for (int n=0;n<img_count;n++) {
+
 		//opening image
 		filename = images[n];
 		char *char_filename=new char[filename.size()+1]  ;
@@ -1692,16 +1839,26 @@ int main( int argc,  char** argv){
 		maindata.rotation=parse_exif(char_filename);
 		//printf ("  Orientation: %1d\n",maindata.rotation);
 
+		////opening (trying to open) the file
+		//try {
+			//CImg<unsigned char> srcimg(char_filename) ;
+			////del srcimg;
+		//} catch(CImgException &e) { 
+			//printf ("\n==>  CImg library error for file %s :\n%s\nSkipping the file...\n",char_filename,e.what());
+			//continue;
+		//}
+		//CImg<unsigned char> srcimg(char_filename) ;
+		
 		//opening (trying to open) the file
+		//CImg<unsigned char> srcimg;
 		try {
-			CImg<unsigned char> srcimg(char_filename) ;
-			//del srcimg;
+			srcimg.load(char_filename) ;
 		} catch(CImgException &e) { 
 			printf ("\n==>  CImg library error for file %s :\n%s\nSkipping the file...\n",char_filename,e.what());
-			continue;
-		}
-		CImg<unsigned char> srcimg(char_filename) ;
-		
+			continue;}
+
+
+
 		
 		maindata.source_x_size = srcimg.width();maindata.source_y_size = srcimg.height();
 		printf ("==> Image  %2d/%2d: %-15s ( %4d x %4d)\n",n+1,img_count,char_filename,maindata.source_x_size,maindata.source_y_size);
@@ -1733,7 +1890,7 @@ int main( int argc,  char** argv){
 		//calculating & applying sharpening - relative radius 0.1
 		change_brightness(&br[0],brightness_gamma,contrast_gamma);  //modifying br
 		if (maindata.nosharp==FALSE) {
-			blur(&br[0],&mask1[0],0.1,maindata.source_x_size,maindata.source_y_size);  // blurring br to mask1
+			blur(&br[0],&mask1[0],0.1,maindata.source_x_size,maindata.source_y_size,__LINE__);  // blurring br to mask1
 			take_samples(SHARP);										//taking samples
 			get_ordered(&sample_sharp1[0],POINTSPERLINE*POINTSPERLINE);								//ordering them
 			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp1,maindata.maxsharp1,1.0,"Sharpness1",2,&tmp,0.1);
@@ -1749,12 +1906,14 @@ int main( int argc,  char** argv){
 			insert_final(&sharp_mask,&mask1[0],MASK);
 			string newmaskfilename=("mask1_"+newfilename);
 			const char *char_newmaskfilename = newmaskfilename.c_str();
-			sharp_mask.save_png(char_newmaskfilename);}
+			sharp_mask.save_png(char_newmaskfilename);
+			//sharp_mask.~CImg();
+			}
 		
 		//calculating & applying sharpening - relative radius 0.01
 		//change_brightness(&br[0],brightness_gamma,contrast_gamma);  //modifying br
 		if (maindata.nosharp==FALSE) {
-			blur(&br[0],&mask1[0],0.01,maindata.source_x_size,maindata.source_y_size);  // blurring br to mask1
+			blur(&br[0],&mask1[0],0.01,maindata.source_x_size,maindata.source_y_size,__LINE__);  // blurring br to mask1
 			take_samples(SHARP);										//taking samples
 			get_ordered(&sample_sharp1[0],POINTSPERLINE*POINTSPERLINE);								//ordering them
 			sharpness_boost=linear_calibrate(&sample_sharp1[0],maindata.minsharp2,maindata.maxsharp2,1.0,"Sharpness2",2,&tmp,0.08);
@@ -1770,9 +1929,9 @@ int main( int argc,  char** argv){
 			insert_final(&sharp_mask,&mask1[0],MASK);
 			string newmaskfilename=("mask2_"+newfilename);
 			const char *char_newmaskfilename = newmaskfilename.c_str();
-			sharp_mask.save_png(char_newmaskfilename);}
-
-
+			sharp_mask.save_png(char_newmaskfilename);
+			//sharp_mask.~CImg();
+			}
 
 
 		
@@ -1802,7 +1961,7 @@ int main( int argc,  char** argv){
 
 			
 		//inserting text
-		insert_text(&final_img,maindata.xpos,maindata.ypos,maindata.textsize);
+		if (maindata.insertingtext) insert_text(&final_img,maindata.xpos,maindata.ypos,maindata.textsize);
 		
 
 		
@@ -1823,6 +1982,9 @@ int main( int argc,  char** argv){
 			
 		}
 		
+		
+		srcimg.assign();
+		final_img.assign();
 		}
 			
 	printf( "==SUMMARY (per change - count of images):\n");
