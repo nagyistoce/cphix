@@ -70,7 +70,7 @@ static int sat_stat[3]={0,0,0};
 static int rgbalign_stat=0;
 void help ();
 static string filename; 
-const char *version="1.7.2";
+const char *version="1.7.3";
 //const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
 //const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3}; // v 1.6
 const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
@@ -1229,6 +1229,8 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 	int newr,newg,newb;
 	int full_offset;
 	unsigned char w1[] = { 255 };
+	unsigned char w2[] = { 0 };
+		
 	const bool debug=FALSE;
 	
 	size=(maindata.source_x_size+maindata.source_y_size)/80;
@@ -1239,7 +1241,7 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 	//if (offset<1) offset=1;
 	
 	CImg<unsigned char> empty;
-	empty.draw_text(0,0,maindata.title,w1,NULL,1,size*sizeratio);
+	empty.draw_text(0,0,maindata.title,w1,w2,1,size*sizeratio);
 	neededx=empty.width();
 	neededy=empty.height();
 	full_offset=blur_radius+int(maindata.toffset*(min(neededx,neededy)))+1;
