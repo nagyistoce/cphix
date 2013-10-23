@@ -344,7 +344,7 @@ void arg_processing ( int argc, char** argv){
 			if (shadow_argv[n+1]==false && n+1<argc) {
 				tmpfloat=atof(argv[n+1]);
 				if (tmpfloat==0)
-					printf (" ! Check the argument for --minsat  \n");
+					printf (" ! Check the argument for --topacity  \n");
 				else if (tmpfloat<0.001 || tmpfloat>1)
 					printf (" ! --topacity got value out of allowed range (0.001-1), using default... \n");
 				else {
@@ -760,12 +760,15 @@ float linear_calibrate(float *array,const float minlimit,const float maxlimit,co
 	return boost;
 	}
 	
-	
+
 void get_brightness(const float value,const float br_gamma,const float contr_gamma, float *new_br, float *new_contr,const float overallbr){
-	float tmp;
+	float tmp;  // temporary variable to store brightness
 	float old_contrast=0;
 	float new_contrast;
 	const bool debug=FALSE;
+	//if (br_gamma<1) tmp=value*br_gamma;
+	//else if (br_gamma>1) tmp=(br_gamma-1) + value*(1-br_gamma+1);
+	//else tmp=value;
 	tmp=pow(value,br_gamma);
 	if (tmp>overallbr) old_contrast=pow((tmp-overallbr)/(1-overallbr),contr_gamma);
 	else if (tmp<overallbr) old_contrast=pow((overallbr-tmp)/overallbr,contr_gamma);
@@ -788,22 +791,24 @@ void get_brightness(const float value,const float br_gamma,const float contr_gam
 	}
 
 
-//void get_brightness(const float value,const float br_gamma,const float contr_gamma, float *new_br, float *new_contr){
-	//float tmp;
+	
+//void get_brightness(const float value,const float br_gamma,const float contr_gamma, float *new_br, float *new_contr,const float overallbr){
+	//float tmp;  // temporary variable to store brightness
 	//float old_contrast=0;
 	//float new_contrast;
 	//const bool debug=FALSE;
 	//tmp=pow(value,br_gamma);
-	//if (tmp>0.5) old_contrast=pow((tmp-0.5)/0.5,contr_gamma);
-	//if (tmp<0.5) old_contrast=pow((0.5-tmp)/0.5,contr_gamma);
+	//if (tmp>overallbr) old_contrast=pow((tmp-overallbr)/(1-overallbr),contr_gamma);
+	//else if (tmp<overallbr) old_contrast=pow((overallbr-tmp)/overallbr,contr_gamma);
+	//else old_contrast=0;
 	
 	////applying contrast gamma
 	//new_contrast=pow(old_contrast,contr_gamma);
 	
 	////calculating new brightness
-	//if (tmp>0.5) *new_br=0.5 + new_contrast/2.0;
-	//else if (tmp<0.5) *new_br=0.5 - new_contrast/2.0;	
-	//else *new_br=0.5;
+	//if (tmp>overallbr) *new_br=overallbr + new_contrast*(1.0-overallbr);
+	//else if (tmp<overallbr) *new_br=overallbr - new_contrast*overallbr;	
+	//else *new_br=overallbr;
 	
 	//if (debug) {
 		//printf ("  old brightness: %.3f , old contrast: %.3f\n",value,old_contrast);
@@ -812,6 +817,7 @@ void get_brightness(const float value,const float br_gamma,const float contr_gam
 
 	//*new_contr=new_contrast;
 	//}
+
 
 
 void brightness_calibrate(const float *array, float *br_gamma, float *contr_gamma){  //,float br_min,float br_max, float contr_min, float contr_max){
@@ -1221,24 +1227,22 @@ void put_in_stat(float value,int *stat){
 void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float sizeratio){
 	int img_x_pos,img_y_pos,i;
 	int label_x_pos,label_y_pos;
-	int size,neededx,neededy,label_x_size,label_y_size,blur_radius;
+	int size,neededx,neededy,label_x_size,label_y_size,blur_radius,blur_radius_fg;
 	int label_basepos;
-	int oldr,oldg,oldb,tmpr,tmpg,tmpb;
+	//int oldr,oldg,oldb,tmpr,tmpg,tmpb;
 	int foregroundcol[3]={255,255,40};
 	int backgroundcol[3]={0,0,70};
 	int newr,newg,newb;
 	int full_offset;
 	unsigned char w1[] = { 255 };
 	unsigned char w2[] = { 0 };
+	float px_fg_weight,px_bg_weight,px_orig_weight;
 		
 	const bool debug=FALSE;
 	
 	size=(maindata.source_x_size+maindata.source_y_size)/80;
 	blur_radius=size*sizeratio/7;
-	//full_offset=blur_radius+maindata.toffset+1;
-
-	//size/10;
-	//if (offset<1) offset=1;
+	blur_radius_fg=size*sizeratio/50;
 	
 	CImg<unsigned char> empty;
 	empty.draw_text(0,0,maindata.title,w1,w2,1,size*sizeratio);
@@ -1269,16 +1273,16 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 			fg_weight[label_basepos]=0;}
 		else {
 			//empty_basepos=get_basepos(label_x-blur_radius-1,label_y-blur_radius-1,neededx);
-			bg_weight[label_basepos]=empty(label_x_pos-full_offset,label_y_pos-full_offset,0)/255.0;
-			fg_weight[label_basepos]=empty(label_x_pos-full_offset,label_y_pos-full_offset,0)/255.0;
-			//if (label_x_pos%10==1 && label_y_pos%10==1)
-				//printf ("  For label position %2d %2d entering value: %.3f\n",label_x_pos,label_y_pos,fg_weight[label_basepos]);
+			bg_weight[label_basepos]=pow(empty(label_x_pos-full_offset,label_y_pos-full_offset,0)/255.0,1.0/2.2);
+			fg_weight[label_basepos]=pow(empty(label_x_pos-full_offset,label_y_pos-full_offset,0)/255.0,1.0/2.2);
+			if (debug && label_x_pos%10==1 && label_y_pos%10==1)
+				printf ("  For label position %2d %2d entering value: %.3f\n",label_x_pos,label_y_pos,fg_weight[label_basepos]);
 			}
 		}}	
 	//blurring
 	add_offset(&bg_weight[0],(unsigned int) label_x_size,(unsigned int) label_y_size,(unsigned int) int(maindata.toffset*(min(neededx,neededy))));
 	blur(&bg_weight[0],&bg_weight_blurred[0],(float)blur_radius,label_x_size,label_y_size,__LINE__);
-	blur(&fg_weight[0],&fg_weight_blurred[0],1,label_x_size,label_y_size,__LINE__);
+	blur(&fg_weight[0],&fg_weight_blurred[0],(float)blur_radius_fg,label_x_size,label_y_size,__LINE__);
 	for (i=0;i<	label_x_size*label_y_size;i+=1){
 		fg_weight_blurred[i]=3*fg_weight_blurred[i];
 		if(fg_weight_blurred[i]>1.0) fg_weight_blurred[i]=1.0;
@@ -1294,41 +1298,63 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 		if (img_x_pos<0 ||img_x_pos>=maindata.source_x_size) continue; 
 		img_y_pos=maindata.source_y_size*outer_y-label_y_size+label_y_pos;
 		if (img_y_pos<0 ||img_y_pos>=maindata.source_y_size) continue; 
-		oldr=(int)(*img)(img_x_pos,img_y_pos,0);
-		oldg=(int)(*img)(img_x_pos,img_y_pos,1);	
-		oldb=(int)(*img)(img_x_pos,img_y_pos,2);
-		//applying background
-		//oldr=bg_weight_blurred[label_basepos]*backgroundcol[0] + oldr*(1-bg_weight_blurred[label_basepos]);
-		//oldg=bg_weight_blurred[label_basepos]*backgroundcol[1] + oldg*(1-bg_weight_blurred[label_basepos]);
-		//oldb=bg_weight_blurred[label_basepos]*backgroundcol[2] + oldb*(1-bg_weight_blurred[label_basepos]);
 		
-		//newr=fg_weight_blurred[label_basepos]*foregroundcol[0] + oldr*(1-fg_weight[label_basepos]);
-		//newg=fg_weight_blurred[label_basepos]*foregroundcol[1] + oldg*(1-fg_weight[label_basepos]);
-		//newb=fg_weight_blurred[label_basepos]*foregroundcol[2] + oldb*(1-fg_weight[label_basepos]);
+		//here we calculate weights of foreground, background and original pixel
+		px_fg_weight=fg_weight_blurred[label_basepos];
+		if (bg_weight_blurred[label_basepos]>fg_weight_blurred[label_basepos])
+			px_bg_weight=bg_weight_blurred[label_basepos]-fg_weight_blurred[label_basepos];
+		else px_bg_weight=0;
+		px_fg_weight=px_fg_weight*maindata.topacity;
+		px_bg_weight=px_bg_weight*maindata.topacity;
+		px_orig_weight=1-px_fg_weight-px_bg_weight;
+		if( debug && label_x_pos%10==0 && label_y_pos%10==0) 
+			printf ("  weights: %.3f - %.3f - %.3f\n",px_fg_weight,px_bg_weight,px_orig_weight);
 		
-		tmpr=bg_weight_blurred[label_basepos]*backgroundcol[0] + oldr*(1-bg_weight_blurred[label_basepos]);
-		tmpg=bg_weight_blurred[label_basepos]*backgroundcol[1] + oldg*(1-bg_weight_blurred[label_basepos]);
-		tmpb=bg_weight_blurred[label_basepos]*backgroundcol[2] + oldb*(1-bg_weight_blurred[label_basepos]);
-		
-		tmpr=fg_weight_blurred[label_basepos]*foregroundcol[0] + tmpr*(1-fg_weight[label_basepos]);
-		tmpg=fg_weight_blurred[label_basepos]*foregroundcol[1] + tmpg*(1-fg_weight[label_basepos]);
-		tmpb=fg_weight_blurred[label_basepos]*foregroundcol[2] + tmpb*(1-fg_weight[label_basepos]);		
-		
-		if (tmpr>255) tmpr=255;
-		if (tmpg>255) tmpg=255;
-		if (tmpb>255) tmpb=255;
-				
-		newr=tmpr*maindata.topacity+oldr*(1-maindata.topacity);
-		newg=tmpg*maindata.topacity+oldg*(1-maindata.topacity);
-		newb=tmpb*maindata.topacity+oldb*(1-maindata.topacity);		
-		
-		if (newr>255) newr=255;
-		if (newg>255) newg=255;
-		if (newb>255) newb=255;
+		newr=(*img)(img_x_pos,img_y_pos,0)*px_orig_weight + backgroundcol[0]*px_bg_weight + foregroundcol[0]*px_fg_weight;
+		newg=(*img)(img_x_pos,img_y_pos,1)*px_orig_weight + backgroundcol[1]*px_bg_weight + foregroundcol[1]*px_fg_weight;
+		newb=(*img)(img_x_pos,img_y_pos,2)*px_orig_weight + backgroundcol[2]*px_bg_weight + foregroundcol[2]*px_fg_weight;
 
 		(*img)(img_x_pos,img_y_pos,0)=newr;
 		(*img)(img_x_pos,img_y_pos,1)=newg;
-		(*img)(img_x_pos,img_y_pos,2)=newb;
+		(*img)(img_x_pos,img_y_pos,2)=newb;	
+	
+	
+		//oldr=(int)(*img)(img_x_pos,img_y_pos,0);
+		//oldg=(int)(*img)(img_x_pos,img_y_pos,1);	
+		//oldb=(int)(*img)(img_x_pos,img_y_pos,2);
+		
+		//if( label_x_pos%10==0 && label_y_pos%10==0)
+			//printf("   oldr: %d fg: %.3f, bg: %.3f\n",oldr, fg_weight_blurred[label_basepos], bg_weight_blurred[label_basepos]);	
+		
+		////applying background
+		//tmpr=bg_weight_blurred[label_basepos]*backgroundcol[0] + oldr*(1-bg_weight_blurred[label_basepos]);
+		//tmpg=bg_weight_blurred[label_basepos]*backgroundcol[1] + oldg*(1-bg_weight_blurred[label_basepos]);
+		//tmpb=bg_weight_blurred[label_basepos]*backgroundcol[2] + oldb*(1-bg_weight_blurred[label_basepos]);
+		
+		//tmpr=fg_weight_blurred[label_basepos]*foregroundcol[0] + tmpr*(1-fg_weight[label_basepos]);
+		//tmpg=fg_weight_blurred[label_basepos]*foregroundcol[1] + tmpg*(1-fg_weight[label_basepos]);
+		//tmpb=fg_weight_blurred[label_basepos]*foregroundcol[2] + tmpb*(1-fg_weight[label_basepos]);		
+		
+		//if (tmpr>255) tmpr=255;
+		//if (tmpg>255) tmpg=255;
+		//if (tmpb>255) tmpb=255;
+				
+		//newr=tmpr*maindata.topacity+oldr*(1-maindata.topacity);
+		//newg=tmpg*maindata.topacity+oldg*(1-maindata.topacity);
+		//newb=tmpb*maindata.topacity+oldb*(1-maindata.topacity);	
+		//if( label_x_pos%10==0 && label_y_pos%10==0)
+			//printf("   Applying opacity: %d %d -> %d\n",tmpr, oldr,newr);	
+		
+		//if (newr>255) newr=255;
+		//if (newg>255) newg=255;
+		//if (newb>255) newb=255;
+
+		//(*img)(img_x_pos,img_y_pos,0)=tmpr;
+		//(*img)(img_x_pos,img_y_pos,1)=tmpg;
+		//(*img)(img_x_pos,img_y_pos,2)=tmpb;
+		////if(label_x_pos%10==0 && label_y_pos%10==0) printf (" final values: %3d: %.4f %.4f %.4f\n", basepos, Rnew,Gnew,Bnew);
+		//if(label_x_pos%10==0 && label_y_pos%10==0) printf (" final values: %u %u %u\n", newr,newg,newb);
+
 	}}
 	
 	delete[] bg_weight;
@@ -1610,6 +1636,8 @@ void populate(const CImg<unsigned char>* srcimgL){
 		float* sat_tmp = new float[maindata.source_size];
 		float* mask1_tmp = new float[maindata.source_size];
 		float* tmp1_tmp = new float[maindata.source_size];
+		
+		
 						
 		r=r_tmp;
 		g=g_tmp;
@@ -1622,7 +1650,9 @@ void populate(const CImg<unsigned char>* srcimgL){
 		sat=sat_tmp;
 		mask1=mask1_tmp;
 		tmp1=tmp1_tmp;
-		allocated=maindata.source_size;}
+		allocated=maindata.source_size;
+		//delete r_tmp;
+		}
 	
 	if (maindata.rotation==8 || maindata.rotation==6  || maindata.rotation==7  || maindata.rotation==5 ){
 		tmp=maindata.source_x_size;
