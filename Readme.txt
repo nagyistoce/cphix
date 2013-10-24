@@ -1,6 +1,6 @@
 Cphix is CLI tool to normalize images intended primarily for linux.
  
-Current version 1.7.0
+Current version 1.7.4
 HOME: http://code.google.com/p/cphix/
 (see wiki section there also)
 
@@ -56,12 +56,14 @@ As by now, "final_" prefix is appended to the filename. Original images are not 
 
 Cphix requires:
 CImg library
+Optional:
 libjpeg8
 libpng12
 
 LINUX:
 (The platfom this is developed on)
 Extract and enter cphix directory and run
+./configure   
 make
 There is no 'make install', you can do whatever you want with compiled binary file and put it somewhere in your path or leave it where it is.
 
@@ -77,4 +79,4 @@ tiborb95 at gmail dot com
 Your feedback is WELCOMED !
 
 
-Updated: 10 Oct 2013
+Updated: 24 Oct 2013

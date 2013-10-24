@@ -1,0 +1,14 @@
+all: cphix2.bin
+
+exif.o: easyexif/exif.cpp
+	g++ -O2 -pedantic -Wall -Wextra -ansi -c easyexif/exif.cpp -o easyexif/exif.o
+
+cphix2.bin:cphix2.cpp easyexif/exif.o
+	g++ cphix2.cpp -L/usr/lib  -lpthread  -lm  -lpng  -Dcimg_use_png  -ljpeg  -Dcimg_use_jpeg  -ltiff  -Dcimg_use_tiff  -lz  -Dcimg_use_zlib  -L/usr/X11R6/lib -lX11 -Dcimg_display=1  -I/usr/include -O3 -fno-tree-pre -o cphix2.bin easyexif/exif.o
+
+wall:cphix2.cpp easyexif/exif.o
+	g++ cphix2.cpp -Wall -L/usr/lib -lpthread -lm -lpng -Dcimg_use_png -ljpeg -Dcimg_use_jpeg -ltiff -Dcimg_use_tiff -lz -Dcimg_use_zlib -L/usr/X11R6/lib -lX11 -Dcimg_display=1 -I/usr/include -O3 -fno-tree-pre -o cphix2.bin easyexif/exif.o
+
+
+clean:
+	rm -f easyexif/exif.o cphix2.bin

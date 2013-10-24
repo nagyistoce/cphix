@@ -3,20 +3,39 @@
 # and re-creates Makefile
 # 
 
+
+
+#Critical dependencies
+function check2 {
+	g++ -M cphix2.cpp 2>&1 | grep -q $1  || { echo "$1 missing, install $2....";exit 1;}
+	echo "Checking for "$1" ... yes"
+	}
+
+
+check2 CImg.h "Cimg (C Imaging library)"
+
+
+
+
 COMMAND="g++ cphix2.cpp -L/usr/lib "
 
 function check {
 	result=no
 	g++ -l$1 2>&1 | grep -q -i "Undefined reference"  && result=yes
-	echo "Checking for "$1"...  "$result
+	echo "Checking for "$1" ...  "$result
 	
 	
 	}
 
 
+
 check pthread
 if [ "$result" == "yes" ] ; then
 COMMAND="$COMMAND -lpthread "
+fi
+check m
+if [ "$result" == "yes" ] ; then
+COMMAND="$COMMAND -lm "
 fi
 check png
 if [ $result == "yes" ] ; then
@@ -50,13 +69,10 @@ COMMAND="$COMMAND -Dcimg_display=0 "
 fi
 
 COMMAND="$COMMAND -I/usr/include -O3 -fno-tree-pre -o cphix2.bin easyexif/exif.o"
-
+echo -e "... OK, ready for compilation. COMPILATION COMMAND:"
 echo $COMMAND
 
-#echo $COMMAND | sed 's:cphix2.cpp:cphix2.cpp -Wall:'
-#$COMMAND
 
-#rm Makefile
 echo "all: cphix2.bin
 
 exif.o: easyexif/exif.cpp
@@ -73,12 +89,9 @@ echo "
 
 clean:
 	rm -f easyexif/exif.o cphix2.bin" >> Makefile
+	
+exit 0
 
 
 
 
-exit
-MOJE:
-g++ cphix2.cpp -O2 -L/usr/X11R6/lib -lm -lpthread -lX11 -ljpeg -lpng -Dcimg_use_jpeg -Dcimg_use_png -o cphix2.bin easyexif/exif.o
-JEHO	:
-g++ cphix2.cpp -L/usr/lib -lpthread -lpng -ljpeg -ltiff -lz -lX11 -Dcimg_display=1 -Dcimg_OS=1 -Dcimg_use_png -Dcimg_use_jpeg -Dcimg_use_tiff -Dcimg_use_zlib -I/usr/include -I/usr/include/lzma -O3 -fno-tree-pre -o cphix2 easyexif/exif.o

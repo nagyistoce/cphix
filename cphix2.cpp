@@ -4,13 +4,14 @@
 // 
 // It is command line tool working in batch mode.
 // Intended platform: Linux (though it should work elsewhere)
-// To compile run 'make' in unpacked directory (Makefile included)
-// No configure skript available.
-// You have to take care of compiled binary by yourselves, and copy it wherever suitable.
-// Dependencies: gcc (obviously) and Cimg (C Image Library)
+// To compile run:
+// ./configure.sh
+// make
+// No 'make install' though, just put the output binary (cphix2.bin) to appropriate directory.
+// Needed dependencies: gcc (obviously) and Cimg (C Image Library)
+// strongly reccomended: libjpeg-dev (cimg's native support for jpeg is not reliable)
+// alse review the output of configure.sh script to lear about other optional dependencies
 //
-// for Valgrind debugging, compile binary with following
-// g++ -g cphix2.cpp -fno-inline  -L/usr/X11R6/lib -lm -lpthread -lX11 -Wall -Iinclude
 //
 // Contact: tiborb95 at gmail dot com
 // 
@@ -24,8 +25,8 @@ using namespace std;
 //#define cimg_use_tiff
 #include <CImg.h>
 using namespace cimg_library;
-#include<stdio.h> 
-#include<stdlib.h>  
+#include <stdio.h> 
+#include <stdlib.h>  
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -70,7 +71,7 @@ static int sat_stat[3]={0,0,0};
 static int rgbalign_stat=0;
 void help ();
 static string filename; 
-const char *version="1.7.3";
+const char *version="1.7.4";
 //const float remaptable[7]={1.3,0.7,1.1,0.8,1.4,0.9,1.3};
 //const float remaptable[7]={1.3,0.7,1.4,0.8,1.4,0.9,1.3}; // v 1.6
 const float remaptable[7]={1.0,0.8,0.9,0.7,1.0,0.7,1.0}; // v 1.7
@@ -1318,43 +1319,6 @@ void insert_text(CImg<unsigned char>* img,float outer_x, float outer_y, float si
 		(*img)(img_x_pos,img_y_pos,1)=newg;
 		(*img)(img_x_pos,img_y_pos,2)=newb;	
 	
-	
-		//oldr=(int)(*img)(img_x_pos,img_y_pos,0);
-		//oldg=(int)(*img)(img_x_pos,img_y_pos,1);	
-		//oldb=(int)(*img)(img_x_pos,img_y_pos,2);
-		
-		//if( label_x_pos%10==0 && label_y_pos%10==0)
-			//printf("   oldr: %d fg: %.3f, bg: %.3f\n",oldr, fg_weight_blurred[label_basepos], bg_weight_blurred[label_basepos]);	
-		
-		////applying background
-		//tmpr=bg_weight_blurred[label_basepos]*backgroundcol[0] + oldr*(1-bg_weight_blurred[label_basepos]);
-		//tmpg=bg_weight_blurred[label_basepos]*backgroundcol[1] + oldg*(1-bg_weight_blurred[label_basepos]);
-		//tmpb=bg_weight_blurred[label_basepos]*backgroundcol[2] + oldb*(1-bg_weight_blurred[label_basepos]);
-		
-		//tmpr=fg_weight_blurred[label_basepos]*foregroundcol[0] + tmpr*(1-fg_weight[label_basepos]);
-		//tmpg=fg_weight_blurred[label_basepos]*foregroundcol[1] + tmpg*(1-fg_weight[label_basepos]);
-		//tmpb=fg_weight_blurred[label_basepos]*foregroundcol[2] + tmpb*(1-fg_weight[label_basepos]);		
-		
-		//if (tmpr>255) tmpr=255;
-		//if (tmpg>255) tmpg=255;
-		//if (tmpb>255) tmpb=255;
-				
-		//newr=tmpr*maindata.topacity+oldr*(1-maindata.topacity);
-		//newg=tmpg*maindata.topacity+oldg*(1-maindata.topacity);
-		//newb=tmpb*maindata.topacity+oldb*(1-maindata.topacity);	
-		//if( label_x_pos%10==0 && label_y_pos%10==0)
-			//printf("   Applying opacity: %d %d -> %d\n",tmpr, oldr,newr);	
-		
-		//if (newr>255) newr=255;
-		//if (newg>255) newg=255;
-		//if (newb>255) newb=255;
-
-		//(*img)(img_x_pos,img_y_pos,0)=tmpr;
-		//(*img)(img_x_pos,img_y_pos,1)=tmpg;
-		//(*img)(img_x_pos,img_y_pos,2)=tmpb;
-		////if(label_x_pos%10==0 && label_y_pos%10==0) printf (" final values: %3d: %.4f %.4f %.4f\n", basepos, Rnew,Gnew,Bnew);
-		//if(label_x_pos%10==0 && label_y_pos%10==0) printf (" final values: %u %u %u\n", newr,newg,newb);
-
 	}}
 	
 	delete[] bg_weight;
