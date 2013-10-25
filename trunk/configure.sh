@@ -1,18 +1,13 @@
 #!/bin/bash
-#this is no way a standard configure script, this just check dependencies
+# this is no standard configure script, this just check dependencies
 # and re-creates Makefile
 # 
 
 
 
-#Critical dependencies
-function check2 {
-	g++ -M cphix2.cpp 2>&1 | grep -q $1  || { echo "$1 missing, install $2....";exit 1;}
-	echo "Checking for "$1" ... yes"
-	}
+g++ -M cphix2.cpp 2>&1 || { echo "Configure failed, install missing dependencies, quitting ....";exit 1;}
 
 
-check2 CImg.h "Cimg (C Imaging library)"
 
 
 
@@ -69,7 +64,8 @@ COMMAND="$COMMAND -Dcimg_display=0 "
 fi
 
 COMMAND="$COMMAND -I/usr/include -O3 -fno-tree-pre -o cphix2.bin easyexif/exif.o"
-echo -e "... OK, ready for compilation. COMPILATION COMMAND:"
+echo -e "... OK, ready for compilation. Run 'make'"
+echo " COMPILATION COMMAND:"
 echo $COMMAND
 
 
